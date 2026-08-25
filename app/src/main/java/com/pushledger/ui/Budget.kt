@@ -55,6 +55,7 @@ import com.pushledger.StatusNotifier
 import com.pushledger.Store
 import java.time.LocalDate
 import java.time.YearMonth
+import com.pushledger.won
 
 /**
  * 예산 화면. 여기에는 예산만 남긴다.
@@ -422,7 +423,7 @@ fun MoneyField(
         placeholder = "0",
         suffix = "만원",
         big = !compact,
-        hint = if (!compact && v > 0L) wonKo(v) else "",
+        hint = if (!compact && v > 0L) won(v) else "",
         hintColor = Accent,
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Number,
@@ -466,7 +467,7 @@ private fun FixedDialog(onClose: () -> Unit) {
                     placeholder = "0",
                     suffix = "원",
                     big = true,
-                    hint = if (fixedVal > 0L) wonKo(fixedVal) else "",
+                    hint = if (fixedVal > 0L) won(fixedVal) else "",
                     hintColor = Accent,
                     visualTransformation = ThousandsTransformation,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

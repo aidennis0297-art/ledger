@@ -40,6 +40,8 @@ object CoachRun {
         running.value = true
         kind.value = k
         message.value = if (useAi) "AI 가 소비 내역을 읽는 중" else "소비 내역을 계산하는 중"
+        // 진행 표시는 화면마다 만들지 않는다. 어느 탭에 있든 위쪽 띠에 이게 뜬다.
+        AiJob.start(k.label, 0, message.value)
 
         scope.launch {
             val cfg = Store.config.value
@@ -65,6 +67,7 @@ object CoachRun {
             )
             message.value = "완료"
             running.value = false
+            AiJob.finish("완료")
         }
         return true
     }
@@ -105,7 +108,6 @@ object LocalCoach {
 
     private fun at(t: Txn): LocalDateTime = LocalDateTime.parse(t.at, Store.ts)
 
-    private fun won(v: Long): String = "%,d원".format(v)
 
     /** 만원 단위로 뭉갠 금액. 리포트에서 1원 단위는 읽는 데 방해만 된다. */
     private fun round(v: Long): Long = v / 1_000 * 1_000

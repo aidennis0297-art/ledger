@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pushledger.AiJob
 import com.pushledger.AiQueue
 import com.pushledger.AiReport
 import com.pushledger.CoachRun
@@ -77,7 +78,9 @@ fun InboxScreen() {
     var seg by remember { mutableIntStateOf(0) }
     val inbox by Store.inbox.collectAsState()
 
-    val pendingCount = inbox.count { it.state == Raw.PENDING || it.state == Raw.SUGGEST }
+    // 배지는 켠 앱에서 온 미처리만 센다. 안 켠 앱의 제안까지 세면 배지가 늘 빨갛고,
+    // 그러면 배지가 아무것도 알려 주지 않는 것과 같다.
+    val pendingCount = inbox.count { it.state == Raw.PENDING }
 
     Column(Modifier.fillMaxWidth()) {
         TabRow(seg, containerColor = Color.White, contentColor = Accent) {
@@ -111,17 +114,20 @@ fun InboxScreen() {
 private fun NotifHistoryTab() {
     val inbox by Store.inbox.collectAsState()
     val cfg by Store.config.collectAsState()
-    val running by AiQueue.running.collectAsState()
-    val done by AiQueue.done.collectAsState()
-    val total by AiQueue.total.collectAsState()
-    val msg by AiQueue.lastMsg.collectAsState()
+    val running by AiJob.running.collectAsState()
+    val done by AiJob.done.collectAsState()
+    val total by AiJob.total.collectAsState()
+    val msg by AiJob.message.collectAsState()
     val ctx = LocalContext.current
 
     var filter by remember { mutableStateOf("PENDING") }
 
     val filteredList = remember(inbox, filter) {
         when (filter) {
-            "PENDING" -> inbox.filter { it.state == Raw.PENDING || it.state == Raw.SUGGEST }
+            // 제안(SUGGEST)은 켜지도 않은 앱에서 온 것이다. 미처리와 한 칸에 담으면
+            // 켠 적 없는 앱의 알림이 "내가 처리해야 할 것" 으로 둔갑한다.
+            "PENDING" -> inbox.filter { it.state == Raw.PENDING }
+            "SUGGEST" -> inbox.filter { it.state == Raw.SUGGEST }
             "DONE" -> inbox.filter { it.state == Raw.DONE }
             "FAILED" -> inbox.filter { it.state == Raw.FAILED }
             "IGNORED" -> inbox.filter { it.state == Raw.IGNORED }
@@ -130,11 +136,10 @@ private fun NotifHistoryTab() {
         }
     }
 
-    // AI 에 넘길 것: 못 읽은 것과 실패한 것. 실패한 건이야말로 다시 걸어 봐야 할 것들인데,
-    // 예전에는 일괄 버튼이 미처리만 집어서 한 번 실패하면 낱개로 스무 번 눌러야 했다.
-    val queueItems = inbox.filter {
-        it.state == Raw.PENDING || it.state == Raw.SUGGEST || it.state == Raw.FAILED
-    }
+    // AI 에 넘길 것: 켠 앱에서 왔는데 못 읽은 것과 실패한 것.
+    // 켜지 않은 앱의 제안은 여기 없다 — 켤지 말지도 안 정한 앱의 알림을 AI 에 넘겨
+    // 가계부에 꽂아 버리면, 앱을 고르는 스위치가 아무 뜻도 없어진다.
+    val queueItems = inbox.filter { it.state == Raw.PENDING || it.state == Raw.FAILED }
 
     LazyColumn(Modifier.fillMaxWidth()) {
 
@@ -252,9 +257,10 @@ private fun NotifHistoryTab() {
                     // 칸 이름 옆의 숫자가 곧 목록이다. 미처리가 0이면 볼 것이 없다는 뜻이고,
                     // 실패가 쌓이면 그 칸에서 통째로 다시 걸 수 있다.
                     listOf(
-                        "PENDING" to ("미처리" to inbox.count { it.state == Raw.PENDING || it.state == Raw.SUGGEST }),
+                        "PENDING" to ("미처리" to inbox.count { it.state == Raw.PENDING }),
                         "DONE" to ("기록됨" to inbox.count { it.state == Raw.DONE }),
                         "FAILED" to ("실패" to inbox.count { it.state == Raw.FAILED }),
+                        "SUGGEST" to ("안 켠 앱" to inbox.count { it.state == Raw.SUGGEST }),
                         "IGNORED" to ("무시됨" to inbox.count { it.state == Raw.IGNORED }),
                         "NOISE" to ("금액 없음" to inbox.count { it.state == Raw.NOISE }),
                         "ALL" to ("전체" to inbox.size)
@@ -319,7 +325,7 @@ private fun RawCard(raw: Raw) {
     }
     val stateBadgeText = when (raw.state) {
         Raw.PENDING -> "미처리"
-        Raw.SUGGEST -> "추천"
+        Raw.SUGGEST -> "안 켠 앱"
         Raw.DONE -> "기록됨"
         Raw.IGNORED -> "무시"
         Raw.FAILED -> "실패"
@@ -400,15 +406,39 @@ private fun RawCard(raw: Raw) {
                     Text("무시", fontSize = T.Caption, color = Sub)
                 }
                 Spacer(Modifier.width(4.dp))
-                Button(
-                    onClick = {
-                        if (!AiQueue.enqueue(ctx, listOf(raw.id))) {
-                            Toast.makeText(ctx, "AI 키가 없습니다. 설정에서 넣어 주세요.", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Ink)
-                ) {
-                    Text("AI로 기록", fontSize = T.Caption)
+                // 안 켠 앱에서 온 제안은 "AI로 기록" 이 아니라 "이 앱 켜기" 가 답이다.
+                // 켜지도 않은 앱의 알림 한 건만 몰래 가계부에 꽂으면, 다음 결제는 또 안 잡힌다.
+                if (raw.state == Raw.SUGGEST) {
+                    Button(
+                        onClick = {
+                            val c = Store.config.value
+                            Store.saveConfig(
+                                c.copy(
+                                    allowedPkgs = c.allowedPkgs + raw.pkg,
+                                    blockedPkgs = c.blockedPkgs - raw.pkg
+                                )
+                            )
+                            val n = Store.restoreAllFrom(raw.pkg)
+                            Toast.makeText(
+                                ctx, "${raw.appLabel} 을(를) 켰습니다. 앞으로 이 앱 결제는 자동으로 잡힙니다 (${n}건 되돌림)",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                    ) {
+                        Text("이 앱 켜기", fontSize = T.Caption)
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            if (!AiQueue.enqueue(ctx, listOf(raw.id))) {
+                                Toast.makeText(ctx, "AI 키가 없습니다. 설정에서 넣어 주세요.", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Ink)
+                    ) {
+                        Text("AI로 기록", fontSize = T.Caption)
+                    }
                 }
             }
         } else if (raw.state == Raw.IGNORED) {
@@ -548,19 +578,29 @@ private fun AppSettingsTab() {
                 Switch(
                     checked = isAllowed,
                     onCheckedChange = { checked ->
-                        // 켜면 차단도 같이 푼다. 차단 목록에 남아 있으면 켜 놓고도 알림이 안 온다.
+                        // 스위치를 끄면 차단 목록에 넣는다.
+                        //
+                        // 예전에는 허용 목록에서 빼기만 했다. 그러면 그 앱은 "아직 안 정한 앱"
+                        // 이 되고, 안 정한 앱의 알림은 금액이 보이면 제안으로 계속 올라온다.
+                        // 사용자 입장에서는 껐는데도 그 앱 알림이 알림함에 계속 뜨는 것이다.
+                        // 끈다는 건 안 보겠다는 뜻이다.
                         Store.saveConfig(
                             if (checked) cfg.copy(
                                 allowedPkgs = cfg.allowedPkgs + pkg,
                                 blockedPkgs = cfg.blockedPkgs - pkg
-                            ) else cfg.copy(allowedPkgs = cfg.allowedPkgs - pkg)
+                            ) else cfg.copy(
+                                allowedPkgs = cfg.allowedPkgs - pkg,
+                                blockedPkgs = cfg.blockedPkgs + pkg
+                            )
                         )
-                        if (checked) {
-                            val n = Store.restoreAllFrom(pkg)
-                            if (n > 0) Toast.makeText(
-                                ctx, "$label 알림 ${n}건을 미처리로 되돌렸습니다", Toast.LENGTH_SHORT
-                            ).show()
-                        }
+                        val n = if (checked) Store.restoreAllFrom(pkg)
+                        else Store.ignoreAllFrom(pkg, "앱을 꺼서 치움")
+                        if (n > 0) Toast.makeText(
+                            ctx,
+                            if (checked) "$label 알림 ${n}건을 미처리로 되돌렸습니다"
+                            else "$label 알림 ${n}건을 치웠습니다",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     },
                     colors = SwitchDefaults.colors(checkedThumbColor = Accent)
                 )

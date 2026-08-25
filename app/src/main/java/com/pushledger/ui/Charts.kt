@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pushledger.Cat
+import com.pushledger.won
+import com.pushledger.wonShort
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
@@ -84,31 +86,6 @@ val CatColor = mapOf(
 )
 
 
-
-fun won(v: Long): String = "%,d원".format(v)
-
-/**
- * 12345 를 "1만2천3백4십5원" 으로 읽어 준다.
- * 숫자를 칠 때 0 을 몇 개 눌렀는지 세지 않아도 되게 하려는 것이다.
- */
-fun wonKo(v: Long): String {
-    if (v <= 0L) return "0원"
-    val units = listOf(
-        100_000_000L to "억", 10_000L to "만", 1_000L to "천", 100L to "백", 10L to "십", 1L to ""
-    )
-    var rest = v
-    val sb = StringBuilder()
-    for ((u, name) in units) {
-        val q = rest / u
-        if (q > 0) { sb.append(q).append(name); rest %= u }
-    }
-    return sb.append("원").toString()
-}
-fun wonShort(v: Long): String = when {
-    v >= 100_000_000 -> "%.1f억".format(v / 100_000_000.0)
-    v >= 10_000 -> "%,d만".format(v / 10_000)
-    else -> "%,d".format(v)
-}
 
 /** 화면마다 반복되는 흰 카드. 제목·아이콘·오른쪽 액션 한 줄이 거의 항상 같은 모양이다. 접기/펼치기를 지원한다. */
 

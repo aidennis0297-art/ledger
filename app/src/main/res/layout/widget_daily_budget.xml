@@ -18,9 +18,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="45,000"
+            android:text="4만 5000원"
             android:textColor="#16161A"
-            android:textSize="22sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textSize="18sp"
             android:textStyle="bold" />
 
         <LinearLayout

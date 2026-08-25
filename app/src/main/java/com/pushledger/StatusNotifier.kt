@@ -77,10 +77,8 @@ object StatusNotifier {
             else -> "초과"
         }
         val plainBody = if (noBudget) "예산 탭에서 월 예산을 정해 주세요"
-        else "오늘 %,d / %,d · 월 %s".format(
-            daily.todaySpent, daily.dailyLimit,
-            if (remain >= 0) monthShort(remain) else "-" + monthShort(-remain)
-        )
+        else "오늘 ${won(daily.todaySpent)} / ${won(daily.dailyLimit)} · 월 " +
+            (if (remain >= 0) monthShort(remain) else "-" + monthShort(-remain))
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             // 적응형 아이콘(mipmap)을 여기 쓰면 Android 8 이상에서 알림이 통째로 무시된다.
@@ -104,11 +102,7 @@ object StatusNotifier {
     }
 
     /** 만원 단위로 줄인 금액. 상태창과 위젯은 자리가 좁아 원 단위까지 적을 곳이 없다. */
-    fun monthShort(v: Long): String = when {
-        v >= 100_000_000L -> "%.1f억".format(v / 100_000_000.0)
-        v >= 10_000L -> "%,d만".format(v / 10_000)
-        else -> "%,d원".format(v)
-    }
+    fun monthShort(v: Long): String = if (v >= 10_000L) wonShort(v) else won(v)
 
     /**
      * 도트 칠하기. 한도를 넘으면 열두 칸을 전부 빨갛게 채운다.
@@ -175,7 +169,7 @@ object StatusNotifier {
                     .setSmallIcon(R.drawable.ic_stat_budget)
                     .setContentTitle("오늘 예산을 넘었어요")
                     .setContentText(
-                        "%,d원 초과 · 오늘 한도 %,d원".format(-daily.remaining, daily.dailyLimit)
+                        "${won(-daily.remaining)} 초과 · 오늘 한도 ${won(daily.dailyLimit)}"
                     )
                     .setAutoCancel(true)
                     .setColor(OVER)

@@ -105,6 +105,28 @@ data class Raw(
     }
 }
 
+/**
+ * AI 가 이미 기록된 거래를 보고 낸 고침 제안 하나.
+ *
+ * 규칙이 만든 기록은 가맹점 자리에 카드사 이름이 들어가거나 분류가 어긋나는 일이 잦다.
+ * 자동으로 고쳐 버리면 사용자가 무엇이 바뀌었는지 모른 채 가계부가 달라지므로,
+ * 제안으로 쌓아 두고 사용자가 적용한다.
+ *
+ * [before] 를 통째로 들고 다니는 이유는 되돌리기 때문이다. 바뀐 칸만 적어 두면
+ * 되돌릴 때 그 칸이 그동안 또 바뀌었는지 알 수 없고, 그러면 되돌리기가 덮어쓰기가 된다.
+ * [drop] 은 애초에 지출이 아니니 지우자는 제안이다.
+ */
+@Serializable
+data class Fix(
+    val id: String,
+    val before: Txn,
+    val after: Txn,
+    val reason: String = "",
+    val drop: Boolean = false,
+    val applied: Boolean = false,
+    val createdAt: String = ""
+)
+
 @Serializable
 data class Fixed(
     val id: String,

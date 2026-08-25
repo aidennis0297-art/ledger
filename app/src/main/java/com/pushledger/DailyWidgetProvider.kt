@@ -67,7 +67,7 @@ class DailyWidgetProvider : AppWidgetProvider() {
                 val over = !daily.isSuccess
                 views.setTextViewText(
                     R.id.widget_daily_amount,
-                    "%,d".format(if (over) -daily.remaining else daily.remaining)
+                    won(if (over) -daily.remaining else daily.remaining)
                 )
                 views.setTextColor(
                     R.id.widget_daily_amount,
@@ -78,8 +78,8 @@ class DailyWidgetProvider : AppWidgetProvider() {
                     R.id.widget_status_badge,
                     if (over) 0xFFE5484D.toInt() else 0xFF2F6BFF.toInt()
                 )
-                views.setTextViewText(R.id.widget_spent_text, "지출 %,d".format(daily.todaySpent))
-                views.setTextViewText(R.id.widget_remaining_text, "한도 %,d".format(daily.dailyLimit))
+                views.setTextViewText(R.id.widget_spent_text, "지출 " + won(daily.todaySpent))
+                views.setTextViewText(R.id.widget_remaining_text, "한도 " + won(daily.dailyLimit))
                 // 큰 숫자는 오늘 몫, 이 줄은 달 전체. 위젯은 한 칸짜리라 배지 아래
                 // 남는 자리에 끼워 넣는다. 줄을 하나 더 쌓으면 아래가 잘린다.
                 views.setTextViewText(

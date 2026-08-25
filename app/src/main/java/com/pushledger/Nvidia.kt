@@ -379,6 +379,96 @@ object Nvidia {
      * 알림 한 건에 수십 초가 걸렸고 — 스무 건이면 십 분이다 — 응답이 생각 과정만
      * 쓰다가 상한에 걸려 JSON 이 통째로 안 나오는 일도 잦았다. 파싱은 끄고 짧게 받는다.
      */
+    private val REVIEW_SYSTEM_PROMPT = """
+        당신은 이미 기록된 가계부 줄을 다시 보는 감사자입니다.
+        각 줄은 결제 알림에서 규칙이나 AI 가 자동으로 만든 것이라 다음 실수가 섞여 있습니다.
+        - 가맹점 자리에 카드사·은행·간편결제 앱 이름이나 사람 이름이 들어간 경우
+        - 분류나 세부 분류가 실제 가맹점과 맞지 않는 경우
+        - 애초에 지출이 아닌 것이 기록된 경우 (광고, 적립, 충전, 잔액 안내,
+          내가 보낸 송금을 상대가 받았다는 확인)
+
+        고칠 것이 있는 줄만 골라 JSON 배열로 답하세요. 멀쩡한 줄은 아예 넣지 마세요.
+        고칠 것이 하나도 없으면 [] 만 출력합니다.
+
+        고치는 줄: {"i":3,"drop":false,"merchant":"스타벅스 강남점","category":"식비","sub_category":"카페/음료","reason":"카드사 이름이 가맹점 자리에 들어감"}
+        지울 줄:   {"i":5,"drop":true,"reason":"광고 알림이 결제로 기록됨"}
+
+        - category 는 반드시 다음 중 하나: 식비, 생활, 여가, 금융, 고정지출, 수입, 기타
+        - sub_category 는 다음 중 알맞은 것:
+          * 식비: 식당/외식, 카페/음료, 배달, 마트/식료품, 반찬/식자재
+          * 생활: 생필품, 병원/약국, 뷰티/미용
+          * 여가: 문화/컨텐츠, 교통/차량, 취미/운동, 쇼핑/의류
+          * 금융: 투자/저축, 대출이자, 보험료, 이체/수수료
+          * 고정지출: 월세, 관리비, 공과금, 통신비, 구독료
+          * 수입: 용돈/보너스, 중고판매, 환급금/이자, 기타수입
+          * 기타: 경조사, 선물, 기타지출
+        - merchant 를 고칠 필요가 없으면 원래 값을 그대로 적습니다.
+        - reason 은 한 줄로 짧게. 사용자가 이 줄을 고칠지 말지 정하는 근거입니다.
+        - 금액과 날짜는 절대 고치지 않습니다. 그건 알림에 찍힌 사실입니다.
+        - 확실하지 않으면 넣지 마세요. 멀쩡한 줄을 건드리는 것이 놓치는 것보다 나쁩니다.
+
+        설명이나 인사말 없이 JSON 배열만 출력합니다.
+    """.trimIndent()
+
+    /** AI 가 기록을 보고 낸 제안 하나. [i] 는 보낸 목록에서의 번호(1부터). */
+    data class Suggestion(
+        val i: Int,
+        val drop: Boolean,
+        val merchant: String,
+        val category: String,
+        val subCategory: String,
+        val reason: String
+    )
+
+    /**
+     * 기록된 거래 여러 건을 한 번에 검토한다.
+     *
+     * 한 건씩 부르지 않는 이유는 수 때문이다. 한 달치가 백 건이면 백 번을 부르게 되고,
+     * 그건 몇십 분짜리 일이 된다. 열몇 건씩 묶어 보내면 모델이 서로를 견주어 보기까지 한다
+     * — 같은 가맹점이 두 줄에서 다르게 분류돼 있으면 그 자리에서 걸린다.
+     */
+    fun review(apiKey: String, txns: List<Txn>, catHints: String = ""): Result<List<Suggestion>> {
+        if (apiKey.isBlank()) return Result.failure(Exception("API 키 없음"))
+        if (txns.isEmpty()) return Result.success(emptyList())
+
+        val lines = txns.mapIndexed { i, t ->
+            "${i + 1}. ${t.at.substring(0, 16)} | ${t.merchant.ifBlank { "이름없음" }} | " +
+                "${t.amount}원 | ${t.cat.label}/${t.subCategory.ifBlank { "없음" }} | ${t.method}"
+        }.joinToString("\n")
+
+        val user = buildString {
+            if (catHints.isNotBlank()) {
+                append("사용자가 이미 손으로 정한 분류: ").append(catHints)
+                append("\n같은 가맹점은 위 분류를 기준으로 삼는다.\n\n")
+            }
+            append("검토할 기록 (번호. 날짜 | 가맹점 | 금액 | 분류/세부분류 | 결제수단):\n")
+            append(lines)
+        }
+
+        return runCatching {
+            val res = call(
+                apiKey, REVIEW_SYSTEM_PROMPT, user,
+                thinking = false, maxTokens = 1600, temperature = 0.0
+            )
+            val arr = extractArray(res) ?: error("JSON 배열을 못 찾음: ${res.take(60)}")
+            JSONArray(arr).let { a ->
+                (0 until a.length()).mapNotNull { k ->
+                    val o = a.optJSONObject(k) ?: return@mapNotNull null
+                    val idx = o.optInt("i", 0)
+                    if (idx !in 1..txns.size) return@mapNotNull null
+                    Suggestion(
+                        i = idx,
+                        drop = o.optBoolean("drop", false),
+                        merchant = o.optString("merchant"),
+                        category = o.optString("category"),
+                        subCategory = o.optString("sub_category"),
+                        reason = o.optString("reason")
+                    )
+                }
+            }
+        }
+    }
+
     private fun call(
         key: String,
         system: String,
@@ -431,18 +521,23 @@ object Nvidia {
      * 예전에는 마지막 중괄호까지 통째로 잘랐다. 그래서 모델이 JSON 뒤에 설명을 덧붙이며
      * 중괄호를 한 번 더 쓰면 두 덩어리가 붙은 채로 넘어와 파싱이 통째로 깨졌다.
      */
-    private fun extractJson(text: String): String? {
+    private fun extractJson(text: String): String? = extractBlock(text, '{', '}')
+
+    /** 검토 응답은 배열로 온다. 괄호 종류만 다르고 자르는 방법은 같다. */
+    private fun extractArray(text: String): String? = extractBlock(text, '[', ']')
+
+    private fun extractBlock(text: String, open: Char, close: Char): String? {
         val clean = text
             .replace(Regex("""<think>[\s\S]*?</think>"""), "")
             .replace(Regex("""```(?:json)?"""), "")
             .trim()
-        val start = clean.indexOf('{')
+        val start = clean.indexOf(open)
         if (start < 0) return null
         var depth = 0
         for (i in start until clean.length) {
             when (clean[i]) {
-                '{' -> depth++
-                '}' -> if (--depth == 0) return clean.substring(start, i + 1)
+                open -> depth++
+                close -> if (--depth == 0) return clean.substring(start, i + 1)
             }
         }
         return null

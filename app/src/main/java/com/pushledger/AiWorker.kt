@@ -11,7 +11,6 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 
@@ -26,10 +25,9 @@ import java.time.LocalDateTime
  * 같이 사라지는데, 결과는 앱을 껐다 켜도 남아 있어야 하기 때문이다.
  */
 object AiQueue {
-    val total = MutableStateFlow(0)
-    val done = MutableStateFlow(0)
-    val running = MutableStateFlow(false)
-    val lastMsg = MutableStateFlow("")
+
+    /** 이 큐가 화면 위 띠에 뜰 때 쓰는 이름. 진행 상황은 [AiJob] 이 들고 있다. */
+    const val LABEL = "알림 분석"
 
     /**
      * 큐를 건다. 시작하지 못하면 이유를 [Config.lastAiRun] 에 적고 false 를 돌려준다.
@@ -42,10 +40,7 @@ object AiQueue {
             Store.setLastAiRun("AI 키가 없어 시작하지 못했습니다. 설정에서 NVIDIA API 키를 넣어 주세요.")
             return false
         }
-        total.value = ids.size
-        done.value = 0
-        running.value = true
-        lastMsg.value = "분석을 시작했습니다"
+        AiJob.start(LABEL, ids.size, "분석을 시작했습니다")
         Store.setLastAiRun("")
         WorkManager.getInstance(ctx).enqueueUniqueWork(
             WORK, ExistingWorkPolicy.APPEND_OR_REPLACE, request(ids)
@@ -94,11 +89,9 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
         val ids = inputData.getStringArray("ids").orEmpty()
         val auto = inputData.getBoolean("auto", false)
 
-        // 프로세스가 죽었다 살아나면 AiQueue 는 0/0 인 채로 시작한다.
+        // 프로세스가 죽었다 살아나면 진행 상태가 0/0 인 채로 시작한다.
         // 여기서 다시 세워 두지 않으면 일은 도는데 화면에는 아무것도 안 보인다.
-        AiQueue.total.value = ids.size
-        AiQueue.done.value = 0
-        AiQueue.running.value = true
+        AiJob.start(AiQueue.LABEL, ids.size, "분석을 이어서 하는 중")
 
         val key = Nvidia.apiKey(applicationContext)
         // 한 번만 만들어 큐 전체가 같은 기준으로 분류되게 한다.
@@ -108,9 +101,9 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
 
         for (id in ids) {
             val raw = Store.inbox.value.firstOrNull { it.id == id }
-            if (raw == null) { AiQueue.done.value += 1; continue }
+            if (raw == null) { AiJob.step(); continue }
 
-            AiQueue.lastMsg.value = "${raw.appLabel} 알림을 읽는 중"
+            AiJob.say("${raw.appLabel} 알림을 읽는 중")
             // 한 번은 다시 걸어 본다. 이동 중 끊긴 한 건 때문에 실패로 남기기에는 아깝다.
             var r = Nvidia.analyze(key, raw.appLabel, raw.title, raw.text, hints)
             if (r.isFailure) r = Nvidia.analyze(key, raw.appLabel, raw.title, raw.text, hints)
@@ -165,12 +158,11 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
                 Store.setRawState(id, Raw.FAILED, "AI 실패: ${it.message?.take(80)}")
                 fail++
             }
-            AiQueue.done.value += 1
+            AiJob.step()
         }
 
         val summary = "AI 분석 완료 · ${ok}건 처리, ${fail}건 실패"
-        AiQueue.running.value = false
-        AiQueue.lastMsg.value = summary
+        AiJob.finish(summary)
 
         // 자동 모드는 알림 한 건마다 이 자리를 지난다. 매번 요약을 띄우고 시스템 알림까지
         // 울리면 결제할 때마다 알림이 두 번 오는 셈이 된다. 잘 됐으면 조용히 지나간다.

@@ -184,33 +184,12 @@ private fun Shell() {
  */
 @Composable
 private fun AiStrip(onOpen: () -> Unit) {
-    val running by AiQueue.running.collectAsState()
-    val done by AiQueue.done.collectAsState()
-    val total by AiQueue.total.collectAsState()
-    val msg by AiQueue.lastMsg.collectAsState()
+    val running by AiJob.running.collectAsState()
+    val label by AiJob.label.collectAsState()
+    val msg by AiJob.message.collectAsState()
+    val done by AiJob.done.collectAsState()
+    val total by AiJob.total.collectAsState()
     val cfg by Store.config.collectAsState()
-
-    // 리포트 생성도 몇십 초가 걸린다. AI 분석 탭을 벗어나면 도는 중인지 알 수 없던 것을
-    // 같은 띠에 얹는다. 둘이 동시에 돌 일은 없다.
-    val coaching by CoachRun.running.collectAsState()
-    val coachKind by CoachRun.kind.collectAsState()
-    val coachMsg by CoachRun.message.collectAsState()
-    if (coaching && !running) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
-                .clip(RoundedCornerShape(12.dp)).background(Card).padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            DotSym(Sym.SPARK, 16.dp, Accent)
-            Box(Modifier.weight(1f).padding(start = 8.dp)) {
-                Text(
-                    "${coachKind.label} 만드는 중 · $coachMsg",
-                    fontSize = T.Body, color = Ink, maxLines = 1
-                )
-            }
-        }
-        return
-    }
 
     if (running) {
         Column(
@@ -222,11 +201,10 @@ private fun AiStrip(onOpen: () -> Unit) {
                 DotSym(Sym.SPARK, 16.dp, Accent)
                 Box(Modifier.weight(1f).padding(start = 8.dp)) {
                     Text(
-                        "AI 분석 중 $done / $total · $msg",
+                        label + (if (total > 0) " $done / $total" else "") + " · " + msg,
                         fontSize = T.Body, color = Ink, maxLines = 1
                     )
                 }
-                Text("보기", fontSize = T.Caption, color = Accent)
             }
             Spacer(Modifier.height(6.dp))
             LinearProgressIndicator(

@@ -321,7 +321,8 @@ class ParserTest {
         )
         val plan = LocalCoach.build(ReportKind.PLAN, UserProfile(), txns, cfg)
         // 15.5만을 쓴 초과 항목이므로 16만으로 올린 뒤 한 칸 줄여 15만을 제안한다.
-        assertTrue(plan, plan.contains("150,000원"))
+        // 금액 표기가 만 단위로 끊어 읽는 꼴로 바뀌었다 (150,000원 → 15만원).
+        assertTrue(plan, plan.contains("15만원"))
     }
 
     @Test fun 하루_변동예산은_고정지출과_저축을_뺀다() {

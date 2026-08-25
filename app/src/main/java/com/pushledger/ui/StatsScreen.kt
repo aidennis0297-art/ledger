@@ -33,6 +33,8 @@ import com.pushledger.Stats
 import com.pushledger.Store
 import java.time.LocalDate
 import java.time.YearMonth
+import com.pushledger.won
+import com.pushledger.wonShort
 
 /**
  * 통계. 월간과 연간 두 벌이고, 맨 위 칩으로 갈아 끼운다.

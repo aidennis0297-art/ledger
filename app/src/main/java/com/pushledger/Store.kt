@@ -59,6 +59,7 @@ object Store {
         checkAutoFixed(ym)
         month.value = readMonth(ym)
         inbox.value = readInboxRecent(config.value.keepInboxDays)
+        fixes.value = readFixes()
         sweep()
         StatusNotifier.update(ctx)
     }
@@ -284,7 +285,8 @@ object Store {
      */
     fun ignoreAllFrom(pkg: String, note: String = "앱을 안 보기로 함"): Int {
         val targets = inbox.value.filter {
-            it.pkg == pkg && (it.state == Raw.PENDING || it.state == Raw.SUGGEST)
+            it.pkg == pkg &&
+                (it.state == Raw.PENDING || it.state == Raw.SUGGEST || it.state == Raw.NOISE)
         }
         targets.forEach { setRawState(it.id, Raw.IGNORED, note) }
         return targets.size
@@ -509,6 +511,72 @@ object Store {
 
     /** 마지막 AI 일괄 분석 결과. 빈 문자열이면 화면에서 그 줄이 사라진다. */
     fun setLastAiRun(msg: String) = saveConfig(config.value.copy(lastAiRun = msg))
+
+    // ---- AI 기록 검토 ----
+    //
+    // 제안은 설정이 아니라 자기 파일에 둔다. 설정은 앱이 켜질 때마다 통째로 읽는 것이라
+    // 수십 건짜리 제안 목록이 얹히면 시작이 그만큼 느려지고, 다 쓰고 나면 통째로 버릴
+    // 물건이라 설정과 수명도 다르다.
+
+    private fun fixFile() = File(root, "fixes.json")
+
+    /** 아직 적용하지 않은 것과 적용해서 되돌릴 수 있는 것이 함께 들어 있다. */
+    val fixes = MutableStateFlow<List<Fix>>(emptyList())
+
+    private fun readFixes(): List<Fix> {
+        val f = fixFile()
+        return if (!f.exists()) emptyList()
+        else runCatching { json.decodeFromString<List<Fix>>(f.readText()) }.getOrDefault(emptyList())
+    }
+
+    private fun writeFixes(list: List<Fix>) = synchronized(lock) {
+        writeAtomic(fixFile(), json.encodeToString(list))
+        fixes.value = list
+    }
+
+    /**
+     * 새 제안을 넣는다. 같은 거래에 대한 아직 안 쓴 제안은 새것으로 갈아 끼운다.
+     * 검토를 두 번 돌렸을 때 같은 줄에 대한 제안이 두 개 쌓이면 어느 쪽을 눌러야 할지 알 수 없다.
+     */
+    fun addFixes(list: List<Fix>) = synchronized(lock) {
+        if (list.isEmpty()) return
+        val incoming = list.map { it.before.id }.toSet()
+        val kept = fixes.value.filterNot { !it.applied && it.before.id in incoming }
+        writeFixes(list + kept)
+    }
+
+    /** 제안대로 고친다. 되돌릴 수 있게 제안 자체는 남긴다. */
+    fun applyFix(id: String): Boolean = synchronized(lock) {
+        val fx = fixes.value.firstOrNull { it.id == id && !it.applied } ?: return false
+        if (fx.drop) deleteTxn(fx.before) else updateTxn(fx.after)
+        writeFixes(fixes.value.map { if (it.id == id) it.copy(applied = true) else it })
+        return true
+    }
+
+    /** 적용한 것을 원래대로 돌린다. 지웠던 줄은 다시 넣는다. */
+    fun undoFix(id: String): Boolean = synchronized(lock) {
+        val fx = fixes.value.firstOrNull { it.id == id && it.applied } ?: return false
+        if (fx.drop) restoreTxn(fx.before) else updateTxn(fx.before)
+        writeFixes(fixes.value.map { if (it.id == id) it.copy(applied = false) else it })
+        return true
+    }
+
+    /** 제안을 목록에서 뺀다. 거래는 건드리지 않는다. */
+    fun dismissFix(id: String) = synchronized(lock) {
+        writeFixes(fixes.value.filterNot { it.id == id })
+    }
+
+    fun clearFixes() = synchronized(lock) { writeFixes(emptyList()) }
+
+    /**
+     * 되돌리기 전용 삽입. 중복 판정을 건너뛴다 —
+     * 방금 지운 그 줄을 그대로 되돌리는 것이라 새 결제인지 따질 게 없다.
+     */
+    fun restoreTxn(t: Txn) = synchronized(lock) {
+        val ym = YearMonth.from(LocalDateTime.parse(t.at, ts))
+        val cur = readMonth(ym)
+        if (cur.none { it.id == t.id }) writeMonth(ym, (cur + t).sortedByDescending { it.at })
+    }
 
     fun toggleStatsCollapse(key: String) {
         val cur = config.value.collapsedStats

@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import com.pushledger.Stats
 import com.pushledger.Store
 import java.time.LocalDate
+import com.pushledger.won
+import com.pushledger.wonShort
 
 /**
  * 연간 통계.

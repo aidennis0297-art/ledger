@@ -1,5 +1,6 @@
 package com.pushledger.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -30,6 +31,9 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -47,12 +51,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pushledger.Cat
+import com.pushledger.ReviewRun
+import com.pushledger.Fix
+import com.pushledger.AiJob
 import com.pushledger.Parser
 import com.pushledger.Stats
 import com.pushledger.Store
 import com.pushledger.Txn
 import java.time.LocalDateTime
 import java.time.YearMonth
+import com.pushledger.won
+import com.pushledger.wonShort
 
 @Composable
 fun LedgerScreen() {
@@ -157,6 +166,10 @@ fun LedgerScreen() {
                 }
             }
 
+            // AI 기록 검토. 자동으로 만들어진 기록은 조용히 틀리기 때문에,
+            // 사용자가 우연히 발견하기 전에 한 번 훑어 볼 자리가 필요하다.
+            item { ReviewPanel(ym) }
+
             if (groups.isEmpty()) {
                 item {
                     EmptyState(
@@ -221,6 +234,156 @@ fun LedgerScreen() {
                 at = LocalDateTime.now().format(Store.ts), by = "manual"),
             isNew = true, onClose = { adding = false }
         )
+    }
+}
+
+/**
+ * AI 기록 검토 카드.
+ *
+ * 규칙이 만든 기록은 조용히 틀린다. 가맹점 자리에 카드사 이름이 앉거나, 광고 알림이
+ * 지출로 들어와도 아무 신호가 없어서 사용자가 우연히 내역을 훑다 발견하기 전까지 남는다.
+ * 여기서 한 번 훑어 고칠 곳을 모아 준다.
+ *
+ * 바로 고치지 않고 제안으로 쌓는 이유는, AI 도 틀리기 때문이다. 소리 없이 적용되면
+ * 틀린 기록이 다른 틀린 기록으로 바뀔 뿐이고 사용자는 그것도 모른다.
+ * 적용한 뒤에도 되돌릴 수 있게 원래 줄을 통째로 들고 있는다.
+ */
+@Composable
+private fun ReviewPanel(ym: YearMonth) {
+    val ctx = LocalContext.current
+    val fixes by Store.fixes.collectAsState()
+    val running by AiJob.running.collectAsState()
+    val label by AiJob.label.collectAsState()
+    val msg by AiJob.message.collectAsState()
+    val done by AiJob.done.collectAsState()
+    val total by AiJob.total.collectAsState()
+
+    val reviewing = running && label == ReviewRun.LABEL
+    val pending = fixes.filterNot { it.applied }
+    val applied = fixes.filter { it.applied }
+
+    Panel("AI 기록 검토", Sym.SPARK) {
+        if (reviewing) {
+            Text(
+                "$msg" + if (total > 0) " ($done/$total)" else "",
+                fontSize = T.Body, color = Ink
+            )
+            Spacer(Modifier.height(6.dp))
+            Text("다른 탭을 봐도 계속됩니다", fontSize = T.Caption, color = Sub)
+            return@Panel
+        }
+
+        if (pending.isEmpty() && applied.isEmpty()) {
+            Text(
+                "자동으로 기록된 줄을 AI 가 다시 봅니다. 가맹점 이름이 카드사로 들어갔거나, " +
+                    "분류가 어긋났거나, 애초에 지출이 아닌 것이 섞였는지 찾습니다.",
+                fontSize = T.Caption, color = Sub
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
+        pending.forEach { fx -> FixRow(fx) }
+        if (pending.size > 1) {
+            Row(Modifier.fillMaxWidth(), Arrangement.End) {
+                TextButton(onClick = { pending.forEach { Store.applyFix(it.id) } }) {
+                    Text("${pending.size}건 모두 적용", fontSize = T.Body, color = Accent)
+                }
+            }
+        }
+
+        // 적용한 것도 남겨 둔다. 적용하고 나서야 아니다 싶을 때 되돌릴 자리가 없으면,
+        // 사용자는 적용 버튼 자체를 안 누르게 된다.
+        if (applied.isNotEmpty()) {
+            Spacer(Modifier.height(6.dp))
+            Text("적용함 ${applied.size}건", fontSize = T.Caption, color = Sub)
+            applied.forEach { fx ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    Arrangement.SpaceBetween, Alignment.CenterVertically
+                ) {
+                    Box(Modifier.weight(1f)) {
+                        Text(
+                            (if (fx.drop) "지움 · " else "고침 · ") + fx.before.merchant,
+                            fontSize = T.Body, color = Sub, maxLines = 1
+                        )
+                    }
+                    TextButton(onClick = { Store.undoFix(fx.id) }) {
+                        Text("되돌리기", fontSize = T.Caption, color = Accent)
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth(), Arrangement.End) {
+                TextButton(onClick = { Store.clearFixes() }) {
+                    Text("목록 비우기", fontSize = T.Caption, color = Sub)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), Arrangement.End) {
+            Button(
+                onClick = {
+                    if (!ReviewRun.start(ctx, ym)) {
+                        Toast.makeText(ctx, Store.config.value.lastAiRun, Toast.LENGTH_LONG).show()
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Accent)
+            ) {
+                DotSym(Sym.SPARK, 15.dp, Color.White)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "${ym.monthValue}월 기록 검토",
+                    fontSize = T.Body, fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+/** 제안 한 줄. 무엇이 무엇으로 바뀌는지 눈으로 보고 정할 수 있어야 한다. */
+@Composable
+private fun FixRow(fx: Fix) {
+    Column(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (fx.drop) Warn.copy(alpha = 0.06f) else Card)
+            .padding(10.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) {
+                Text(
+                    fx.before.merchant.ifBlank { "이름 없음" },
+                    fontSize = T.Title, fontWeight = FontWeight.Medium, color = Ink, maxLines = 1
+                )
+            }
+            Text(won(fx.before.amount), fontSize = T.Body, color = Sub)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            if (fx.drop) "지출이 아니니 지우자는 제안입니다"
+            else "${fx.before.cat.label}/${fx.before.subCategory.ifBlank { "없음" }}" +
+                " → ${fx.after.cat.label}/${fx.after.subCategory.ifBlank { "없음" }}" +
+                if (fx.after.merchant != fx.before.merchant) "  ·  이름 → ${fx.after.merchant}" else "",
+            fontSize = T.Body, color = if (fx.drop) Warn else Accent
+        )
+        if (fx.reason.isNotBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text(fx.reason, fontSize = T.Caption, color = Sub)
+        }
+        Row(Modifier.fillMaxWidth(), Arrangement.End, Alignment.CenterVertically) {
+            TextButton(onClick = { Store.dismissFix(fx.id) }) {
+                Text("아니오", fontSize = T.Caption, color = Sub)
+            }
+            Spacer(Modifier.width(4.dp))
+            Button(
+                onClick = { Store.applyFix(fx.id) },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (fx.drop) Warn else Ink
+                )
+            ) {
+                Text(if (fx.drop) "지우기" else "적용", fontSize = T.Caption)
+            }
+        }
     }
 }
 
@@ -290,7 +453,7 @@ private fun TxnDialog(txn: Txn, isNew: Boolean = false, onClose: () -> Unit) {
                     placeholder = "0",
                     suffix = "원",
                     big = true,
-                    hint = if (amountVal > 0L) wonKo(amountVal) else "숫자만 입력하세요",
+                    hint = if (amountVal > 0L) won(amountVal) else "숫자만 입력하세요",
                     hintColor = if (amountVal > 0L) Accent else Sub,
                     visualTransformation = ThousandsTransformation,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

@@ -35,6 +35,8 @@ import com.pushledger.Txn
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import com.pushledger.won
+import com.pushledger.wonShort
 
 @Composable
 fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit) {
@@ -56,7 +58,9 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
         LocalDateTime.parse(it.at, Store.ts).toLocalDate() >= weekStart
     }.sumOf { it.amount }
 
-    val pending = inbox.filter { it.state == Raw.PENDING || it.state == Raw.SUGGEST }
+    // 켠 앱에서 온 미처리만 센다. 안 켠 앱의 제안까지 홈 배너에 띄우면,
+    // 정작 놓친 결제가 그 사이에 묻힌다.
+    val pending = inbox.filter { it.state == Raw.PENDING }
     val days = Stats.byDay(month, ym)
 
     LazyColumn(Modifier.fillMaxWidth()) {

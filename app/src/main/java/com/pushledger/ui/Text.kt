@@ -46,10 +46,26 @@ import androidx.compose.ui.unit.em
 private val NUMERIC = Regex("[+\\-]?\\d+(?:[,:.]\\d+)*%?")
 
 /**
+ * 한글 덩어리. 띄어쓰기는 일부러 안 먹는다 — 공백까지 한 덩어리로 삼키면
+ * 그 자리에서 줄이 안 끊겨 문장이 화면 밖으로 밀린다.
+ *
+ * 네 글자에서 한 번씩 끊는 이유도 같다. 인라인 그림 하나는 글자 하나처럼 다뤄져서
+ * 그 안에서는 줄이 끊기지도, 말줄임표가 붙지도 않는다. "스타벅스강남역점" 을 통째로
+ * 한 덩어리로 두면 좁은 칸에서 그 줄이 통째로 밀려 나간다.
+ */
+private val HANGUL = Regex("[가-힣ㄱ-ㅎㅏ-ㅣ]{1,4}")
+
+/**
  * 도트 숫자 한 칸의 크기(글자 크기 대비). 5칸이 곧 숫자 높이라
  * 0.14 × 5 = 0.7em 이 되어 같은 크기 폰트의 대문자 높이와 얼추 맞는다.
  */
 private const val CELL_EM = 0.14f
+
+/**
+ * 한글 도트 한 칸의 크기. 11칸이 0.79em 이 되어 같은 크기 폰트 글자와 키가 얼추 맞는다.
+ * 숫자와 같은 0.14 를 쓰면 11칸이 1.5em 이 되어 줄 높이를 통째로 밀어낸다.
+ */
+private const val HAN_CELL_EM = 0.072f
 
 @Composable
 fun Text(
@@ -72,7 +88,13 @@ fun Text(
     style: TextStyle = LocalTextStyle.current
 ) {
     val ink = color.takeOrElse { style.color.takeOrElse { LocalContentColor.current } }
-    val parts = remember(text, ink) { dotify(text, ink) }
+    // 한글을 도트로 바꿀지는 글자 크기가 정한다. 작은 글씨는 격자에 안 들어간다.
+    val sp = when {
+        fontSize != TextUnit.Unspecified -> fontSize.value
+        style.fontSize != TextUnit.Unspecified -> style.fontSize.value
+        else -> 0f
+    }
+    val parts = remember(text, ink, sp) { dotify(text, ink, sp) }
 
     androidx.compose.material3.Text(
         text = parts.first,
@@ -105,35 +127,52 @@ fun Text(
  */
 private fun dotify(
     text: String,
-    color: Color
+    color: Color,
+    sp: Float
 ): Pair<AnnotatedString, Map<String, InlineTextContent>> {
-    val hits = NUMERIC.findAll(text).toList()
+    val nums = NUMERIC.findAll(text).map { it.range to true }
+    // 한글은 글자가 클 때만 도트로 간다. 이유는 DotFont.MIN_SP 에 적어 두었다.
+    val words =
+        if (sp >= DotFont.MIN_SP) HANGUL.findAll(text).map { it.range to false }
+        else emptySequence()
+
+    val hits = (nums + words).sortedBy { it.first.first }.toList()
     if (hits.isEmpty()) return AnnotatedString(text) to emptyMap()
 
     val inline = LinkedHashMap<String, InlineTextContent>()
     val built = buildAnnotatedString {
         var cursor = 0
-        hits.forEachIndexed { i, m ->
-            append(text.substring(cursor, m.range.first))
-            val num = m.value
+        hits.forEachIndexed { i, (range, isNum) ->
+            append(text.substring(cursor, range.first))
+            val piece = text.substring(range.first, range.last + 1)
             val id = "d$i"
+
+            // 자리 크기는 글자마다 다르다. 숫자는 3×5 격자, 한글은 폰트를 찍어 낸 격자라
+            // 폭이 글자에 따라 달라진다. 그 폭을 미리 재서 자리를 잡아야 글자가 겹치지 않는다.
+            val rows = if (isNum) 5f else DotFont.ROWS.toFloat()
+            val cols = if (isNum) piece.length * 4f - 1f else DotFont.of(piece).cols.toFloat()
+            val em = if (isNum) CELL_EM else HAN_CELL_EM
+
             inline[id] = InlineTextContent(
                 Placeholder(
-                    width = ((num.length * 4f - 1f) * CELL_EM).em,
-                    height = (5f * CELL_EM).em,
+                    width = (cols * em).em,
+                    height = (rows * em).em,
                     placeholderVerticalAlign = PlaceholderVerticalAlign.AboveBaseline
                 )
             ) {
                 Canvas(Modifier.fillMaxSize()) {
                     // 칸을 정수 픽셀로 내려 맞춘다. 소수 자리에 걸치면 알갱이 가장자리가
                     // 흐려져서, 옆의 8×8 아이콘만 또렷하고 숫자는 번진 것처럼 보인다.
-                    val px = kotlin.math.floor(size.height / 5f).coerceAtLeast(1f)
-                    val w = dotTextWidth(num, px)
-                    dotText(num, (size.width - w) / 2f, (size.height - px * 5f) / 2f, px, color)
+                    val px = kotlin.math.floor(size.height / rows).coerceAtLeast(1f)
+                    val w = cols * px
+                    val x = (size.width - w) / 2f
+                    val y = (size.height - px * rows) / 2f
+                    if (isNum) dotText(piece, x, y, px, color)
+                    else dotString(piece, x, y, px, color)
                 }
             }
-            appendInlineContent(id, num)
-            cursor = m.range.last + 1
+            appendInlineContent(id, piece)
+            cursor = range.last + 1
         }
         append(text.substring(cursor))
     }
