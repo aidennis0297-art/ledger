@@ -9,7 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 
 /**
- * 아무 글자나 도트 격자로 찍는다. 한글이 여기 걸린다.
+ * 아무 글자나 도트 격자로 찍는다. 숫자를 뺀 모든 글자가 여기를 지난다.
  *
  * 한글 낱자를 손으로 그리지 않는다. 초성 19 · 중성 21 · 종성 28 을 다 그리면 68벌인데,
  * 그려 놓고도 받침이 있고 없고에 따라 초성과 중성의 자리와 크기를 다시 손으로 맞춰야 한다.
@@ -19,8 +19,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
  * 읽어 켜진 칸만 사각형으로 다시 찍는다. 한글이든 영문이든 한자든 같은 방법으로
  * 같은 결이 나오고, 처음 보는 글자를 만날 일이 없다.
  *
- * [ROWS] 가 이 글꼴의 해상도다. 한글은 받침까지 들어가서 7칸으로는 뭉개진다.
- * 9칸이 "읽히는" 과 "알갱이가 보이는" 이 함께 성립하는 자리였다.
+ * [ROWS] 가 이 글꼴의 해상도다. 한글은 받침까지 들어가서 칸이 모자라면 통째로 뭉개진다.
  */
 object DotFont {
 
@@ -32,15 +31,6 @@ object DotFont {
      * 11칸이면 받침과 모음이 한 칸씩 떨어져 글자가 산다.
      */
     const val ROWS = 11
-
-    /**
-     * 이 크기(sp)보다 작은 글자는 도트로 바꾸지 않는다.
-     *
-     * 11sp 짜리 설명 문구를 9칸 격자에 욱여넣으면 한 칸이 1px 도 안 돼서, 도트가 아니라
-     * 뭉갠 얼룩이 된다. 읽을 수 없는 글자를 멋으로 내보내지 않는다.
-     * 낮추고 싶으면 이 숫자 하나만 내리면 화면 전체가 따라온다.
-     */
-    const val MIN_SP = 15f
 
     /** 켜진 칸 목록. [cols] × [ROWS] 격자를 왼쪽 위부터 훑은 순서다. */
     class Glyphs(val cols: Int, val on: BooleanArray)
@@ -107,16 +97,17 @@ object DotFont {
         cache[text] = g
         return g
     }
-
-    /** 이 글자를 [cell] 크기의 격자로 찍었을 때의 폭. 자리를 잡으려면 그리기 전에 알아야 한다. */
-    fun width(text: String, cell: Float): Float = of(text).cols * cell
 }
 
 /** 좌상단 기준으로 도트 글자를 찍는다. 높이는 항상 [DotFont.ROWS] 칸이다. */
 fun DrawScope.dotString(text: String, left: Float, top: Float, cell: Float, color: Color) {
     val g = DotFont.of(text)
     // 알갱이 사이를 조금 띄운다. 꽉 채우면 도트가 아니라 그냥 글자가 된다.
-    val d = cell * 0.86f
+    //
+    // 다만 칸이 3픽셀보다 작아지면 띄우지 않는다. 작은 글씨에서 0.86 을 곱하면
+    // 한 칸이 2픽셀 아래로 떨어지고, 획 하나가 통째로 사라져 글자가 무너진다.
+    // 그 크기에서는 어차피 사람 눈에 알갱이 사이가 보이지도 않는다.
+    val d = if (cell < 3f) cell else cell * 0.86f
     for (y in 0 until DotFont.ROWS) {
         val row = y * g.cols
         for (x in 0 until g.cols) {

@@ -29,12 +29,18 @@ import androidx.compose.ui.unit.em
 /**
  * 이 패키지 안에서 [Text] 는 material3 의 것이 아니라 이것이다.
  *
- * 글자는 그대로 폰트로 두고, 숫자만 도트로 찍는다. 카테고리 아이콘도 그래프도
- * 전부 같은 격자 위에 있는데 숫자만 곡선 폰트로 남으면, 화면에서 제일 자주
- * 읽히는 것이 혼자 다른 결이 된다. 그렇다고 한글까지 3×5 격자에 욱여넣으면
- * 읽을 수 없는 얼룩이 되므로, 도트로 바꾸는 건 숫자와 그에 붙는 기호까지다.
+ * **공백 말고는 폰트로 그리는 글자가 없다.** 숫자는 3×5 격자로, 나머지 글자는
+ * [DotFont] 로 찍는다. 카테고리 아이콘도 그래프도 전부 같은 격자 위에 있는데
+ * 글자만 곡선 폰트로 남으면, 화면에서 제일 자주 읽히는 것이 혼자 다른 결이 된다.
  *
- * 화면마다 숫자 자리를 찾아 갈아 끼우지 않고 [Text] 자체를 바꾼 이유는,
+ * 처음에는 숫자만 도트로 찍었고, 다음에는 큰 글자만 도트로 바꿨다. 크기로 선을
+ * 그으니 같은 화면 안에서 제목은 도트인데 그 아래 설명은 폰트가 되어 두 결이
+ * 나란히 놓였다. 선을 없앴다.
+ *
+ * 공백만은 진짜 글자로 남긴다. 공백까지 그림으로 바꾸면 그 자리에서 줄이 끊기지
+ * 않아 긴 문장이 화면 밖으로 밀려 나간다.
+ *
+ * 화면마다 글자 자리를 찾아 갈아 끼우지 않고 [Text] 자체를 바꾼 이유는,
  * 새 화면을 만들 때 이걸 기억하지 않아도 되게 하려는 것이다. 쓰는 쪽은
  * 평소처럼 `Text("남은 12,340원")` 이라고 적으면 된다.
  *
@@ -46,14 +52,14 @@ import androidx.compose.ui.unit.em
 private val NUMERIC = Regex("[+\\-]?\\d+(?:[,:.]\\d+)*%?")
 
 /**
- * 한글 덩어리. 띄어쓰기는 일부러 안 먹는다 — 공백까지 한 덩어리로 삼키면
- * 그 자리에서 줄이 안 끊겨 문장이 화면 밖으로 밀린다.
+ * 한 덩어리로 찍을 최대 글자 수.
  *
- * 네 글자에서 한 번씩 끊는 이유도 같다. 인라인 그림 하나는 글자 하나처럼 다뤄져서
- * 그 안에서는 줄이 끊기지도, 말줄임표가 붙지도 않는다. "스타벅스강남역점" 을 통째로
- * 한 덩어리로 두면 좁은 칸에서 그 줄이 통째로 밀려 나간다.
+ * 인라인 그림 하나는 글자 하나처럼 다뤄져서 그 안에서는 줄이 끊기지도, 말줄임표가
+ * 붙지도 않는다. "스타벅스강남역점" 을 통째로 한 덩어리로 두면 좁은 칸에서 그 줄이
+ * 통째로 밀려 나간다. 그렇다고 한 글자씩 쪼개면 줄마다 그림 조각이 수십 개가 되어
+ * 목록 스크롤이 무거워진다. 여덟이 그 사이다.
  */
-private val HANGUL = Regex("[가-힣ㄱ-ㅎㅏ-ㅣ]{1,4}")
+private const val CHUNK = 8
 
 /**
  * 도트 숫자 한 칸의 크기(글자 크기 대비). 5칸이 곧 숫자 높이라
@@ -88,13 +94,7 @@ fun Text(
     style: TextStyle = LocalTextStyle.current
 ) {
     val ink = color.takeOrElse { style.color.takeOrElse { LocalContentColor.current } }
-    // 한글을 도트로 바꿀지는 글자 크기가 정한다. 작은 글씨는 격자에 안 들어간다.
-    val sp = when {
-        fontSize != TextUnit.Unspecified -> fontSize.value
-        style.fontSize != TextUnit.Unspecified -> style.fontSize.value
-        else -> 0f
-    }
-    val parts = remember(text, ink, sp) { dotify(text, ink, sp) }
+    val parts = remember(text, ink) { dotify(text, ink) }
 
     androidx.compose.material3.Text(
         text = parts.first,
@@ -119,7 +119,39 @@ fun Text(
 }
 
 /**
- * 숫자 구간을 인라인 그림 자리로 바꾼다.
+ * 글자를 도트로 찍을 조각으로 자른다. 공백은 조각이 아니라 그대로 남는다.
+ *
+ * 숫자와 그 밖의 글자는 격자가 달라서(3×5 대 11칸) 조각마다 어느 쪽인지 들고 다닌다.
+ * 자르는 순서가 곧 화면에 놓이는 순서라, 앞에서부터 한 번만 훑는다.
+ */
+private fun pieces(text: String): List<Triple<Int, Int, Boolean>> {
+    val out = ArrayList<Triple<Int, Int, Boolean>>()
+    var i = 0
+    while (i < text.length) {
+        val c = text[i]
+        if (c.isWhitespace()) { i++; continue }
+
+        // 숫자는 붙어 다니는 기호(쉼표·소수점·퍼센트·부호)까지 한 조각으로 먹는다.
+        val num = NUMERIC.matchAt(text, i)
+        if (num != null) {
+            out.add(Triple(i, num.range.last + 1, true))
+            i = num.range.last + 1
+            continue
+        }
+
+        // 나머지는 공백이나 숫자를 만날 때까지, 길어야 CHUNK 글자까지.
+        var j = i
+        while (j < text.length && j - i < CHUNK &&
+            !text[j].isWhitespace() && NUMERIC.matchAt(text, j) == null
+        ) j++
+        out.add(Triple(i, j, false))
+        i = j
+    }
+    return out
+}
+
+/**
+ * 조각을 인라인 그림 자리로 바꾼다.
  *
  * 직접 Row 로 쪼개지 않고 인라인 콘텐츠를 쓰는 이유는 줄바꿈 때문이다.
  * "지난달보다 12,340원 더 씀" 같은 문장은 폭이 좁으면 접혀야 하는데,
@@ -127,28 +159,22 @@ fun Text(
  */
 private fun dotify(
     text: String,
-    color: Color,
-    sp: Float
+    color: Color
 ): Pair<AnnotatedString, Map<String, InlineTextContent>> {
-    val nums = NUMERIC.findAll(text).map { it.range to true }
-    // 한글은 글자가 클 때만 도트로 간다. 이유는 DotFont.MIN_SP 에 적어 두었다.
-    val words =
-        if (sp >= DotFont.MIN_SP) HANGUL.findAll(text).map { it.range to false }
-        else emptySequence()
-
-    val hits = (nums + words).sortedBy { it.first.first }.toList()
+    val hits = pieces(text)
     if (hits.isEmpty()) return AnnotatedString(text) to emptyMap()
 
     val inline = LinkedHashMap<String, InlineTextContent>()
     val built = buildAnnotatedString {
         var cursor = 0
-        hits.forEachIndexed { i, (range, isNum) ->
-            append(text.substring(cursor, range.first))
-            val piece = text.substring(range.first, range.last + 1)
+        hits.forEachIndexed { i, (from, to, isNum) ->
+            append(text.substring(cursor, from))
+            val piece = text.substring(from, to)
             val id = "d$i"
 
-            // 자리 크기는 글자마다 다르다. 숫자는 3×5 격자, 한글은 폰트를 찍어 낸 격자라
-            // 폭이 글자에 따라 달라진다. 그 폭을 미리 재서 자리를 잡아야 글자가 겹치지 않는다.
+            // 자리 크기는 조각마다 다르다. 숫자는 3×5 격자로 폭이 글자 수에 비례하고,
+            // 나머지는 폰트를 찍어 낸 격자라 글자마다 폭이 다르다.
+            // 그 폭을 미리 재서 자리를 잡아야 글자끼리 겹치지 않는다.
             val rows = if (isNum) 5f else DotFont.ROWS.toFloat()
             val cols = if (isNum) piece.length * 4f - 1f else DotFont.of(piece).cols.toFloat()
             val em = if (isNum) CELL_EM else HAN_CELL_EM
@@ -172,7 +198,7 @@ private fun dotify(
                 }
             }
             appendInlineContent(id, piece)
-            cursor = range.last + 1
+            cursor = to
         }
         append(text.substring(cursor))
     }
