@@ -143,16 +143,18 @@ object Stats {
      * 중앙값에서 20% 안에 있을 것, 그 달에 한 번씩만 나올 것. 날짜가 며칠 밀리는
      * 것은 보지 않는다 — 결제일이 주말이면 밀리는데, 그걸 걸면 진짜 구독이 걸러진다.
      *
-     * ponytail: 가맹점 이름이 글자까지 같아야 묶인다. 달마다 "8월분" 같은 꼬리가
-     * 붙는 청구서는 못 잡는다. 놓치는 게 눈에 띄면 그때 Store.normMerchant 를 꺼내 쓴다.
+     * 묶는 열쇠는 [Merchant.key] 다. 이름을 글자 그대로 견주면 "관리비 8월분" 과
+     * "관리비 9월분" 이 서로 다른 가게가 되어, 정작 매달 나가는 청구서를 통째로 놓친다.
+     * 꼬리표와 지점명을 떼고 나면 같은 값이 된다.
      */
     fun recurring(list: List<Txn>, cfg: Config, minMonths: Int = 3): List<Recurring> {
-        val known = cfg.fixed.map { it.name.trim() }.toSet()
+        val known = cfg.fixed.map { Merchant.key(it.name) }.toSet()
+        val ignored = cfg.ignoredRecurring.map { Merchant.key(it) }.toSet()
         return active(list)
             .filter { it.merchant.isNotBlank() }
-            .groupBy { it.merchant.trim() }
-            .mapNotNull inner@{ (m, txns) ->
-                if (m in known || m in cfg.ignoredRecurring) return@inner null
+            .groupBy { Merchant.key(it.merchant) }
+            .mapNotNull inner@{ (k, txns) ->
+                if (k.isBlank() || k in known || k in ignored) return@inner null
                 // 한 달에 여러 번 간 곳은 구독이 아니라 단골이다.
                 val perMonth = txns.groupBy { it.at.substring(0, 7) }
                 if (perMonth.size < minMonths || perMonth.any { it.value.size > 1 }) return@inner null
@@ -165,7 +167,12 @@ object Stats {
 
                 val days = picks.map { at(it).dayOfMonth }.sorted()
                 val latest = picks.maxByOrNull { it.at }!!
-                Recurring(m, mid, days[days.size / 2], perMonth.size, latest.cat, latest.subCategory)
+                // 화면에 보일 이름은 열쇠가 아니라 가장 최근 건의 이름을 다듬어 쓴다.
+                // 열쇠는 기호를 다 턴 소문자라 사람이 읽을 것이 못 된다.
+                Recurring(
+                    Merchant.clean(latest.merchant), mid, days[days.size / 2],
+                    perMonth.size, latest.cat, latest.subCategory
+                )
             }
             .sortedByDescending { it.amount }
     }

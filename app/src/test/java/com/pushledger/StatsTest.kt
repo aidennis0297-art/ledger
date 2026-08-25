@@ -92,6 +92,26 @@ class StatsTest {
         assertTrue(Stats.recurring(three, cfg.copy(ignoredRecurring = setOf("넷플릭스"))).isEmpty())
     }
 
+    @Test fun 청구서_꼬리표가_달라도_같은_반복_결제로_묶는다() {
+        // 통신비·관리비는 달마다 이름 뒤가 바뀐다. 글자 그대로 견주면 매달 다른 가게가 되어
+        // 정작 매달 나가는 청구서를 통째로 놓친다.
+        fun bill(month: Int) = Txn(
+            id = "b$month", amount = 55_000L,
+            merchant = "(주)SKT 통신요금 ${month}월분",
+            at = "2026-%02d-25T09:00:00".format(month)
+        )
+        val hit = Stats.recurring(listOf(bill(6), bill(7), bill(8)), Config()).single()
+        assertEquals(55_000L, hit.amount)
+        assertEquals(3, hit.months)
+        // 화면에 보일 이름에는 껍데기와 꼬리표가 없어야 한다.
+        assertFalse(hit.merchant, hit.merchant.contains("(주)"))
+        assertFalse(hit.merchant, hit.merchant.contains("월분"))
+
+        // 이미 등록했거나 안 보기로 한 것도 다듬은 이름으로 견준다.
+        val known = Config(fixed = listOf(Fixed("1", "SKT 통신요금", 55_000L, 25)))
+        assertTrue(Stats.recurring(listOf(bill(6), bill(7), bill(8)), known).isEmpty())
+    }
+
     @Test fun 예정_고정지출과_실제_고정지출을_가른다() {
         val plan = txn("2026-08-01T09:00:00", by = "fixed", dedup = "fixed|월세|500000|2026-08")
         val real = txn("2026-08-01T09:10:00", by = "fixed", dedup = "kb|500000|2026-08-01")

@@ -135,7 +135,7 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
                         val added = Store.addTxn(
                             Txn(
                                 id = Store.newId(), amount = res.amount,
-                                merchant = res.merchant.ifBlank { raw.appLabel },
+                                merchant = Merchant.clean(res.merchant).ifBlank { raw.appLabel },
                                 category = res.category.name,
                                 subCategory = res.subCategory,
                                 at = raw.postedAt,

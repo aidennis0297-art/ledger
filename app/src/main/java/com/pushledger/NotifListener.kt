@@ -102,7 +102,11 @@ class NotifListener : NotificationListenerService() {
                 val cat = if (isFixed) Cat.of(matchedFixed?.category) else Parser.guessCat(out.merchant)
                 val subCat = if (isFixed) "고정지출" else Parser.guessSubCat(out.merchant, cat)
 
-                val merchantName = if (isFixed) (matchedFixed?.name ?: out.merchant) else out.merchant.ifBlank { label }
+                // 이름은 저장 전에 다듬는다. 여기서 안 하면 통계·반복 결제·취소 대조가
+                // 전부 결제사가 붙인 껍데기를 그대로 안고 간다.
+                val merchantName =
+                    if (isFixed) (matchedFixed?.name ?: out.merchant)
+                    else Merchant.clean(out.merchant).ifBlank { label }
 
                 // 예정으로 미리 넣어 둔 같은 고정지출이 있으면 지우고 이 건으로 대체한다.
                 if (isFixed && matchedFixed != null) {
@@ -134,7 +138,7 @@ class NotifListener : NotificationListenerService() {
                 val added = Store.addTxn(
                     Txn(
                         id = Store.newId(), amount = out.amount,
-                        merchant = sender,
+                        merchant = Merchant.clean(sender),
                         category = Cat.INCOME.name, subCategory = "용돈/보너스",
                         at = stamp, method = out.method,
                         sourcePkg = pkg,
@@ -147,6 +151,29 @@ class NotifListener : NotificationListenerService() {
                     if (added) "규칙: $sender 입금 ${out.amount}원"
                     else "10초 안에 같은 금액이 이미 기록돼 건너뜀"
                 )
+            }
+
+            is Parser.Out.Settle -> {
+                // 되받은 돈이다. 직전 24시간 지출에서 그만큼 뺀다.
+                // 짝을 못 찾으면 정산이 아니라 그냥 받은 돈이었을 수 있으니 수입으로 넣는다.
+                val hit = Store.applySettlement(out.amount, out.from, at)
+                if (hit != null) {
+                    log(Raw.DONE, "규칙: ${hit.merchant} 결제에서 정산 ${out.amount}원 뺌")
+                } else {
+                    val added = Store.addTxn(
+                        Txn(
+                            id = Store.newId(), amount = out.amount,
+                            merchant = Merchant.clean(out.from).ifBlank { "정산금" },
+                            category = Cat.INCOME.name, subCategory = "기타수입",
+                            at = stamp, sourcePkg = pkg, by = "rule", dedup = dedup
+                        )
+                    )
+                    log(
+                        if (added) Raw.DONE else Raw.IGNORED,
+                        if (added) "규칙: 짝지을 지출을 못 찾아 수입으로 넣음 (${out.amount}원)"
+                        else "10초 안에 같은 금액이 이미 기록돼 건너뜀"
+                    )
+                }
             }
 
             is Parser.Out.Cancel -> {

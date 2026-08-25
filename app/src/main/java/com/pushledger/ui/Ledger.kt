@@ -394,7 +394,12 @@ private fun FixRow(fx: Fix) {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TxnDialog(txn: Txn, isNew: Boolean = false, onClose: () -> Unit) {
+internal fun TxnDialog(
+    txn: Txn,
+    isNew: Boolean = false,
+    onSaved: (Txn) -> Unit = {},
+    onClose: () -> Unit
+) {
     var merchant by remember { mutableStateOf(txn.merchant) }
     var amount by remember { mutableStateOf(if (txn.amount == 0L) "" else txn.amount.toString()) }
     var cat by remember { mutableStateOf(txn.cat) }
@@ -581,10 +586,12 @@ private fun TxnDialog(txn: Txn, isNew: Boolean = false, onClose: () -> Unit) {
                     if (!isNew && next.at.substring(0, 7) != txn.at.substring(0, 7)) {
                         Store.deleteTxn(txn)
                         Store.addTxn(next)
+                        onSaved(next)
                         onClose()
                         return@Button
                     }
                     if (isNew) Store.addTxn(next) else Store.updateTxn(next)
+                    onSaved(next)
                 }
                 onClose()
             }) { Text("저장", fontWeight = FontWeight.Bold) }

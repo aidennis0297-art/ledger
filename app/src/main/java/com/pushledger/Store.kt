@@ -205,7 +205,7 @@ object Store {
      * 같은 달만 뒤지면 그런 건은 조용히 못 찾고 넘어간다.
      */
     fun applyCancel(amount: Long, merchant: String, cancelTime: LocalDateTime): Txn? = synchronized(lock) {
-        val key = normMerchant(merchant)
+        val key = Merchant.key(merchant)
         for (back in 0L..1L) {
             val ym = YearMonth.from(cancelTime).minusMonths(back)
             val hit = readMonth(ym).filter {
@@ -222,6 +222,49 @@ object Store {
         }
         return null
     }
+
+    /**
+     * 정산금이 들어왔다. 직전 [hours]시간 안의 지출 중 이 돈을 되받을 만한 건을 찾아 깎는다.
+     *
+     * 더치페이는 내가 먼저 다 내고 나중에 나눠 받는다. 되받은 돈을 수입으로 세면
+     * 그날 지출과 수입이 같이 부풀어 두 숫자가 다 틀리고, 예산은 실제보다 빡빡해진다.
+     * 4만원짜리 저녁을 내가 긁고 셋이 1만원씩 보내면 내 지출은 1만원이다.
+     *
+     * 대상은 **정산금보다 큰 지출 중 가장 최근 것**이다. 작은 결제를 깎아 음수로 만들 수
+     * 없고, 여러 건이 걸리면 방금 낸 것일 가능성이 가장 높다.
+     *
+     * 고친 자국은 [Fix] 로 남긴다. 이미 적어 둔 기록을 자동으로 줄이는 일이라,
+     * 무엇이 얼마로 바뀌었는지 보이고 되돌릴 수 있어야 한다.
+     */
+    fun applySettlement(amount: Long, from: String, at: LocalDateTime, hours: Long = 24): Txn? =
+        synchronized(lock) {
+            if (amount <= 0L) return null
+            val since = at.minusHours(hours)
+            val hit = (0L..1L).flatMap { readMonth(YearMonth.from(at).minusMonths(it)) }
+                .filter {
+                    !it.canceled && it.cat.isExpense && it.by != "fixed" && it.amount > amount &&
+                        LocalDateTime.parse(it.at, ts).let { t -> !t.isBefore(since) && !t.isAfter(at) }
+                }
+                .maxByOrNull { it.at } ?: return null
+
+            val note = "정산 ${amount}원 받음" + if (from.isBlank()) "" else " ($from)"
+            val after = hit.copy(
+                amount = hit.amount - amount,
+                memo = if (hit.memo.isBlank()) note else "${hit.memo} · $note"
+            )
+            updateTxn(after)
+            addFixes(
+                listOf(
+                    Fix(
+                        id = newId(), before = hit, after = after,
+                        reason = "정산금이 들어와 원래 결제에서 뺐습니다",
+                        applied = true,
+                        createdAt = at.format(ts).replace('T', ' ').substring(0, 16)
+                    )
+                )
+            )
+            return after
+        }
 
     /**
      * 실제 출금 알림이 고정지출로 잡히면, 미리 넣어 둔 예정 거래를 지우고 실제 건으로 바꾼다.
@@ -420,12 +463,9 @@ object Store {
             }
     }
 
-    private fun normMerchant(s: String) =
-        s.replace(Regex("""[\s()\[\]*]"""), "").replace(Regex("""\d+호?점$"""), "").lowercase()
-
     private fun merchantMatch(key: String, other: String): Boolean {
         if (key.isBlank()) return true          // 취소 알림에 가맹점이 없으면 금액만으로 본다
-        val o = normMerchant(other)
+        val o = Merchant.key(other)
         return o.contains(key) || key.contains(o)
     }
 

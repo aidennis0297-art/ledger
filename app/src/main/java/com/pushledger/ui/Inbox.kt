@@ -61,6 +61,9 @@ import com.pushledger.CoachRun
 import com.pushledger.ReportKind
 import com.pushledger.DEFAULT_PAY_APPS
 import com.pushledger.Nvidia
+import com.pushledger.Merchant
+import com.pushledger.Parser
+import com.pushledger.Txn
 import com.pushledger.Raw
 import com.pushledger.Stats
 import com.pushledger.Store
@@ -317,6 +320,32 @@ private fun NotifHistoryTab() {
 @Composable
 private fun RawCard(raw: Raw) {
     val ctx = LocalContext.current
+    // 직접 입력 다이얼로그. 내역 탭의 것을 그대로 쓴다 — 분류 고르기와 날짜 고치기가
+    // 이미 다 들어 있는데 알림함용으로 하나 더 만들 이유가 없다.
+    var manual by remember { mutableStateOf(false) }
+    if (manual) {
+        val (amount, merchant) = remember(raw.id) { Parser.salvage(raw.title, raw.text) }
+        TxnDialog(
+            txn = Txn(
+                id = Store.newId(),
+                amount = amount,
+                merchant = Merchant.clean(merchant).ifBlank { raw.appLabel },
+                category = Parser.guessCat(merchant).name,
+                subCategory = Parser.guessSubCat(merchant, Parser.guessCat(merchant)),
+                at = raw.postedAt,
+                sourcePkg = raw.pkg,
+                by = "manual",
+                dedup = raw.dedup
+            ),
+            isNew = true,
+            onSaved = { t ->
+                // 알림함 줄도 같이 정리한다. 안 그러면 손으로 넣고도 미처리로 남아
+                // 다음에 또 처리해야 할 것처럼 보인다.
+                Store.setRawState(raw.id, Raw.DONE, "직접 입력: ${t.merchant} ${t.amount}원")
+            },
+            onClose = { manual = false }
+        )
+    }
 
     val stateBadgeColor = when (raw.state) {
         Raw.PENDING, Raw.SUGGEST, Raw.FAILED -> Warn
@@ -369,6 +398,9 @@ private fun RawCard(raw: Raw) {
                 TextButton(onClick = { Store.setRawState(raw.id, Raw.IGNORED, "직접 무시함") }) {
                     Text("무시", fontSize = T.Caption, color = Sub)
                 }
+                TextButton(onClick = { manual = true }) {
+                    Text("직접 입력", fontSize = T.Caption, color = Accent)
+                }
                 Spacer(Modifier.width(4.dp))
                 Button(
                     onClick = {
@@ -404,6 +436,11 @@ private fun RawCard(raw: Raw) {
                 }
                 TextButton(onClick = { Store.setRawState(raw.id, Raw.IGNORED) }) {
                     Text("무시", fontSize = T.Caption, color = Sub)
+                }
+                // AI 키가 없는 사람에게는 이 버튼이 유일한 길이다. 금액과 가게 이름은
+                // 규칙이 건진 만큼 미리 채워 두므로 분류만 고르면 끝난다.
+                TextButton(onClick = { manual = true }) {
+                    Text("직접 입력", fontSize = T.Caption, color = Accent)
                 }
                 Spacer(Modifier.width(4.dp))
                 // 안 켠 앱에서 온 제안은 "AI로 기록" 이 아니라 "이 앱 켜기" 가 답이다.

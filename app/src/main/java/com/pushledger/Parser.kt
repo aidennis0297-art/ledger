@@ -13,6 +13,14 @@ object Parser {
         data class Cancel(val amount: Long, val merchant: String) : Out
         /** 추가 수입/용돈/입금 알림. */
         data class Income(val amount: Long, val sender: String, val method: String) : Out
+
+        /**
+         * 더치페이 정산금이 들어왔다는 알림.
+         *
+         * 수입이 아니다. 내가 먼저 다 내고 나눠 받는 돈이라, 수입으로 세면 그날
+         * 지출과 수입이 같이 부풀어 두 숫자가 다 틀린다. 원래 결제를 그만큼 깎는 게 맞다.
+         */
+        data class Settle(val amount: Long, val from: String) : Out
         data class None(val reason: String) : Out
     }
 
@@ -37,7 +45,13 @@ object Parser {
      *   님이   + 보냈 → 내가 받음      님이   + 받았 → 상대가 받음(내 지출)
      *   님에게 + 보냈 → 내가 보냄      님에게 + 받았 → 내가 받음
      */
-    private val OTHER_RECEIVED = Regex("""님이\s*[^.]{0,14}(받았|수령)|님께서\s*[^.]{0,14}받았|받기\s*완료|수령\s*완료""")
+    private val OTHER_RECEIVED = Regex(
+        // "○○님이 보낸 10,000원을 받았습니다" 에 걸리면 안 된다. 여기서 받은 건 나다 —
+        // "님이" 는 "보낸" 의 주어일 뿐이고, "받았"의 주어는 생략된 나다.
+        // 그래서 "님이" 뒤에 "보낸/보냈" 이 오면 이 규칙에서 뺀다.
+        """님이\s*(?![^.]{0,16}(보낸|보냈|송금한))[^.]{0,14}(받았|수령)""" +
+            """|님께서\s*[^.]{0,14}받았|받기\s*완료|수령\s*완료"""
+    )
     private val SENT_BY_ME = Regex("""님(에게|께)\s*[^.]{0,14}(보냈|송금)|송금\s*완료|이체\s*완료|보내기\s*완료""")
     private val I_RECEIVED = Regex(
         """입금|송금받|받았습니다|용돈|상여금|급여|환급|캐시백""" +
@@ -46,6 +60,16 @@ object Parser {
 
     /** "○○님" 에서 이름만. 송금 상대는 가맹점이 아니라 사람이라 따로 뽑는다. */
     private val PERSON = Regex("""([가-힣]{2,4})\s*님""")
+
+    /**
+     * 정산금이 들어왔다는 알림.
+     *
+     * 토스·카카오페이의 정산하기(더치페이)는 내가 먼저 다 내고 나중에 나눠 받는 구조다.
+     * 그 돈은 새로 생긴 수입이 아니라 이미 기록된 지출의 일부를 되받은 것이다.
+     * "○○님이 보낸 10,000원을 받았습니다" 처럼 평범한 송금 문구로도 오기 때문에,
+     * 문구만으로 가르지 않고 [Store.applySettlement] 이 직전 24시간 지출과 대조한다.
+     */
+    private val SETTLE = Regex("""정산\s*(요청|하기)?\s*(완료|받기|됨)|정산금|더치페이|N빵|1/N|회비\s*정산""")
 
     /** 지출이 아닌 알림. 충전과 광고 등을 지출로 넣으면 통계가 통째로 틀어진다. */
     private val NOT_SPEND = Regex("""충전|적립|이벤트|쿠폰|당첨|광고|혜택|잔액조회|미납""")
@@ -74,8 +98,14 @@ object Parser {
             return Out.Cancel(amount, merchant)
         }
 
-        // 송금은 방향을 먼저 가른다. 이 세 줄의 순서가 곧 정책이다.
-        // 상대가 받았다는 확인이 제일 앞이다 — "받았" 이 들어 있어 수입 규칙에도 걸리기 때문이다.
+        // 정산 문구가 붙어 있으면 방향을 따질 것도 없다. 정산은 언제나 내가 받는 쪽이다.
+        if (SETTLE.containsMatchIn(body) && !SPEND.containsMatchIn(body)) {
+            val who = PERSON.find(body)?.groupValues?.get(1).orEmpty()
+            return Out.Settle(amount, who.ifBlank { pickMerchant(text) })
+        }
+
+        // 송금은 방향을 가른다. 이 세 줄의 순서가 곧 정책이다.
+        // 상대가 받았다는 확인이 앞이다 — "받았" 이 들어 있어 수입 규칙에도 걸리기 때문이다.
         if (OTHER_RECEIVED.containsMatchIn(body) && !SPEND.containsMatchIn(body))
             return Out.None("상대가 받은 송금 확인 (보낼 때 이미 기록됨)")
 
@@ -104,6 +134,19 @@ object Parser {
     /** 본문에 금액이 하나라도 보이는지. 허용 목록 밖 앱을 알림함에 띄울지 판단할 때 쓴다. */
     fun looksLikeMoney(title: String, text: String): Boolean =
         pickAmount("$title $text") != null
+
+    /**
+     * 못 읽은 알림에서 그래도 건질 수 있는 만큼만 건진다.
+     *
+     * 규칙이 거래로 못 만든 알림이라도 금액과 가게 이름은 대개 보인다. 사용자가 손으로
+     * 넣을 때 그 둘을 다시 타이핑하게 만들 이유가 없다 — 빈 칸에서 시작하면 대개 안 넣는다.
+     */
+    fun salvage(title: String, text: String): Pair<Long, String> {
+        val body = "$title $text".replace('\n', ' ')
+        val amount = pickAmount(body) ?: 0L
+        val merchant = pickMerchant(text).ifBlank { pickMerchant(title) }
+        return amount to merchant
+    }
 
     /** 누적·잔액 뒤에 붙은 금액을 걸러내고 남은 첫 금액을 결제액으로 본다. */
     private fun pickAmount(body: String): Long? {

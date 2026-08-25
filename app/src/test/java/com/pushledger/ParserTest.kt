@@ -113,6 +113,29 @@ class ParserTest {
         )
     }
 
+    /**
+     * 더치페이 정산금은 수입이 아니다. 내가 먼저 다 내고 나눠 받는 돈이라,
+     * 수입으로 세면 그날 지출과 수입이 같이 부풀어 두 숫자가 다 틀린다.
+     */
+    @Test fun 정산금은_수입이_아니라_되받은_돈으로_읽는다() {
+        val r = Parser.parse("토스", "정산 요청 완료 · 김철수님이 보낸 10,000원을 받았습니다")
+        assertTrue(r.toString(), r is Parser.Out.Settle)
+        r as Parser.Out.Settle
+        assertEquals(10_000L, r.amount)
+        assertEquals("김철수", r.from)
+
+        // 정산 문구가 없는 평범한 입금은 그대로 수입이다.
+        val plain = Parser.parse("토스", "김철수님이 10,000원을 보냈어요")
+        assertTrue(plain.toString(), plain is Parser.Out.Income)
+    }
+
+    @Test fun 못_읽은_알림에서도_금액과_가게는_건진다() {
+        // 직접 입력 칸을 빈 채로 열면 사용자는 대개 안 넣는다.
+        val (amount, merchant) = Parser.salvage("우리은행", "행복카드 스타벅스강남 9,500원 정상처리")
+        assertEquals(9_500L, amount)
+        assertTrue(merchant, merchant.contains("스타벅스"))
+    }
+
     @Test fun 적립_알림은_거른다() {
         assertTrue(Parser.parse("스타벅스", "별 2개가 적립되었어요") is Parser.Out.None)
     }
