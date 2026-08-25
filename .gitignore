@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+local.properties
+.idea/
+build/
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+
+# 서명 키와 비밀번호. 같이 새어 나가면 이 앱 이름으로 아무 APK 나 서명할 수 있다.
+release.keystore
+keystore.properties
+
+# 빌드 산출물
+*.apk

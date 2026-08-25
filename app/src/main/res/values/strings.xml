@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">가계부</string>
+    <string name="listener_label">푸시 알림 가계부</string>
+    <string name="widget_description">오늘 하루 가용 예산(N빵)과 지출 성공/실패 여부를 표시합니다</string>
+</resources>

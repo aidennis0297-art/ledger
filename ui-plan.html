@@ -1,0 +1,705 @@
+<title>가계부 UI 정비안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  :root {
+    --ground: #FFFFFF;
+    --raise: #F7F7F9;
+    --ink: #16161A;
+    --sub: #8A8A94;
+    --faint: #E8E8ED;
+    --line: #E4E4EA;
+    --accent: #2F6BFF;
+    --warn: #E5484D;
+    --good: #3FA34D;
+    --clash: #8B5CF6;
+    --dot-off: #DEDEE5;
+  }
+
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --ground: #101014;
+      --raise: #17171C;
+      --ink: #ECECEF;
+      --sub: #8E8E99;
+      --faint: #2A2A32;
+      --line: #26262E;
+      --accent: #6C9AFF;
+      --warn: #FF6E72;
+      --good: #5FBE6C;
+      --clash: #A98BFF;
+      --dot-off: #2E2E38;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #101014;
+    --raise: #17171C;
+    --ink: #ECECEF;
+    --sub: #8E8E99;
+    --faint: #2A2A32;
+    --line: #26262E;
+    --accent: #6C9AFF;
+    --warn: #FF6E72;
+    --good: #5FBE6C;
+    --clash: #A98BFF;
+    --dot-off: #2E2E38;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans KR", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 72px 28px 120px;
+  }
+
+  /* ---------- 머리말 ---------- */
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sub);
+    margin: 0 0 14px;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5.5vw, 42px);
+    line-height: 1.22;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+    text-wrap: balance;
+  }
+
+  .lede {
+    font-size: 17px;
+    color: var(--sub);
+    margin: 0;
+    max-width: 62ch;
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin-top: 26px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    color: var(--sub);
+  }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- 섹션 ---------- */
+  section { margin-top: 68px; }
+
+  h2 {
+    font-size: 13px;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2::before {
+    content: "";
+    width: 7px; height: 7px;
+    background: var(--accent);
+    flex: none;
+  }
+
+  .sec-title {
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+
+  .sec-note { color: var(--sub); margin: 0 0 30px; max-width: 62ch; }
+
+  h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin: 34px 0 8px;
+    letter-spacing: -0.01em;
+  }
+
+  p { margin: 0 0 14px; max-width: 64ch; }
+
+  code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.875em;
+    background: var(--raise);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ---------- 진단 항목 ---------- */
+  .finding {
+    border-top: 1px solid var(--line);
+    padding: 24px 0;
+    display: grid;
+    grid-template-columns: 46px 1fr;
+    gap: 0 18px;
+  }
+
+  .fnum {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sub);
+    padding-top: 4px;
+  }
+
+  .fbody h4 {
+    margin: 0 0 6px;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .fbody p { margin: 0 0 10px; }
+  .fbody p:last-child { margin-bottom: 0; }
+
+  .fix {
+    display: block;
+    background: var(--raise);
+    border-left: 2px solid var(--accent);
+    padding: 10px 14px;
+    font-size: 14.5px;
+    color: var(--ink);
+    margin-top: 12px;
+  }
+  .fix b {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+
+  /* ---------- 도트 계량 ---------- */
+  .gauge { margin: 14px 0 4px; }
+
+  .grow {
+    display: grid;
+    grid-template-columns: 62px 1fr 58px;
+    align-items: center;
+    gap: 12px;
+    padding: 2px 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--sub);
+  }
+  .glabel { text-align: right; color: var(--ink); }
+  .gcount { font-size: 11px; }
+
+  .dots { display: flex; flex-wrap: wrap; gap: 2.5px; }
+  .dots i {
+    width: 7px; height: 7px;
+    background: var(--dot-off);
+    display: block;
+  }
+  .dots i.on { background: var(--accent); }
+  .dots i.hot { background: var(--warn); }
+  .dots i.ok { background: var(--good); }
+
+  /* ---------- 스와치 ---------- */
+  .swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 16px 0 6px;
+  }
+  .sw {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--line);
+    padding: 6px 11px 6px 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--sub);
+  }
+  .sw span {
+    width: 15px; height: 15px;
+    border: 1px solid rgba(128,128,140,.35);
+    flex: none;
+  }
+
+  /* ---------- 표 ---------- */
+  .tablewrap { overflow-x: auto; margin: 16px 0 4px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+  }
+  th, td {
+    text-align: left;
+    padding: 9px 14px 9px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--sub);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td.mono { font-family: "JetBrains Mono", monospace; font-size: 12.5px; white-space: nowrap; }
+  td.now { color: var(--sub); }
+
+  /* ---------- 단계 ---------- */
+  .phase {
+    border: 1px solid var(--line);
+    padding: 20px 22px;
+    margin-bottom: 14px;
+  }
+  .phase-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .phase-head h4 { margin: 0; font-size: 17px; font-weight: 600; }
+  .cost {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--sub);
+    white-space: nowrap;
+  }
+  .phase p { margin: 0 0 10px; font-size: 15px; color: var(--sub); }
+  .phase ul { margin: 0; padding-left: 18px; font-size: 15px; }
+  .phase li { margin-bottom: 4px; }
+  .phase li::marker { color: var(--accent); }
+
+  /* ---------- 제외 ---------- */
+  .skip {
+    border-top: 1px solid var(--line);
+    padding: 16px 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .skip b { font-weight: 600; }
+  .skip span { color: var(--sub); font-size: 15px; }
+
+  .close {
+    margin-top: 64px;
+    padding-top: 26px;
+    border-top: 2px solid var(--ink);
+    color: var(--sub);
+    font-size: 15px;
+  }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 48px 20px 90px; }
+    .finding { grid-template-columns: 1fr; gap: 6px; }
+    .fnum { padding-top: 0; }
+    .grow { grid-template-columns: 54px 1fr; }
+    .gcount { display: none; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    a { transition: color .15s ease; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">pushledger · 디자인 정비</p>
+  <h1>가계부 UI 정비안</h1>
+  <p class="lede">
+    기능은 붙을 만큼 붙었다. 지금 화면이 어수선한 건 무엇이 부족해서가 아니라,
+    같은 것을 화면마다 다르게 그리고 있어서다. 규칙을 먼저 세우고 화면을 거기에 맞춘다.
+  </p>
+
+  <div class="meta">
+    <span>UI 코드 <b>3,131줄</b></span>
+    <span>화면 <b>7개 파일</b></span>
+    <span>측정 기준 <b>현재 소스</b></span>
+  </div>
+
+  <!-- ============ 진단 ============ -->
+  <section>
+    <h2>1 · 진단</h2>
+    <p class="sec-title">어수선함은 취향 문제가 아니라 계측되는 문제다</p>
+    <p class="sec-note">
+      아래는 인상이 아니라 지금 소스를 센 결과다. 각 항목은 측정값과 그로 인해
+      화면에서 벌어지는 일, 그리고 처방으로 이어진다.
+    </p>
+
+    <div class="finding">
+      <div class="fnum">01</div>
+      <div class="fbody">
+        <h4>글자 크기가 13종이다</h4>
+        <p>
+          9sp부터 30sp까지 열세 가지가 163곳에 흩어져 있다. 그중 11 · 12 · 13sp가
+          120곳으로 대부분을 차지한다. 1sp 차이는 눈에는 안 보이지만, 같은 줄에
+          섞이면 정렬이 미세하게 어긋나 화면이 흐려진다.
+        </p>
+
+        <div class="gauge">
+          <div class="grow"><span class="glabel">11sp</span>
+            <span class="dots" data-dots="45" data-kind="hot"></span><span class="gcount">45곳</span></div>
+          <div class="grow"><span class="glabel">12sp</span>
+            <span class="dots" data-dots="50" data-kind="hot"></span><span class="gcount">50곳</span></div>
+          <div class="grow"><span class="glabel">13sp</span>
+            <span class="dots" data-dots="25" data-kind="hot"></span><span class="gcount">25곳</span></div>
+          <div class="grow"><span class="glabel">10sp</span>
+            <span class="dots" data-dots="18" data-kind="on"></span><span class="gcount">18곳</span></div>
+          <div class="grow"><span class="glabel">14sp</span>
+            <span class="dots" data-dots="12" data-kind="on"></span><span class="gcount">12곳</span></div>
+          <div class="grow"><span class="glabel">나머지</span>
+            <span class="dots" data-dots="13" data-kind="on"></span><span class="gcount">8종 13곳</span></div>
+        </div>
+
+        <span class="fix"><b>처방</b>
+          다섯 단으로 줄인다 — 11 / 13 / 15 / 20 / 30sp.
+          11은 보조, 13은 본문, 15는 항목 제목, 20은 카드 숫자, 30은 화면 대표 숫자.
+          <code>Type.kt</code>에 상수로 두고 리터럴 <code>sp</code>를 없앤다.
+        </span>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fnum">02</div>
+      <div class="fbody">
+        <h4>카드 배경이 세 가지로 갈린다</h4>
+        <p>
+          통계 · 예산 · 홈은 회색 카드를 쓰고, 알림함과 내역만 흰 카드를 쓴다.
+          같은 앱 안에서 탭을 옮길 때마다 바닥이 바뀌는 셈이다. 예산 탭은 상태에 따라
+          배경까지 바꿔서 네 번째 · 다섯 번째 색이 더 있다.
+        </p>
+
+        <div class="swatches">
+          <span class="sw"><span style="background:#F7F7F9"></span>#F7F7F9 · Card · 8곳</span>
+          <span class="sw"><span style="background:#FFFFFF"></span>#FFFFFF · 흰 카드 · 3곳</span>
+          <span class="sw"><span style="background:#F6F8FB"></span>#F6F8FB · 예산 요약</span>
+          <span class="sw"><span style="background:#FFF2F2"></span>#FFF2F2 · 배정 초과</span>
+        </div>
+
+        <span class="fix"><b>처방</b>
+          바닥은 <code>Card</code> 하나로 통일한다. 상태는 배경이 아니라 글자 색과
+          왼쪽 2dp 띠로만 말한다 — 초과했다고 박스까지 붉어지면 화면이 소리를 지른다.
+        </span>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fnum">03</div>
+      <div class="fbody">
+        <h4>모서리 반경이 여섯 종류다</h4>
+        <p>
+          4 · 8 · 10 · 12 · 14 · 16dp가 규칙 없이 섞여 있다. 나란히 놓인 카드끼리
+          둥글기가 다르면, 이유를 짚지 못한 채 정돈되지 않았다는 느낌만 남는다.
+        </p>
+        <span class="fix"><b>처방</b>
+          세 단만 쓴다 — 배지 <code>4dp</code>, 안쪽 요소 <code>10dp</code>, 카드 <code>16dp</code>.
+        </span>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fnum">04</div>
+      <div class="fbody">
+        <h4>내역 탭만 공통 카드를 안 쓴다</h4>
+        <p>
+          <code>Panel</code>은 제목 · 아이콘 · 접기를 한 벌로 묶은 공통 카드다.
+          예산과 통계가 각각 일곱 번, 홈이 네 번, 알림함이 세 번 쓰는데
+          <b>내역 탭은 0회</b>다. 그래서 내역만 혼자 다른 앱처럼 보인다.
+        </p>
+
+        <div class="gauge">
+          <div class="grow"><span class="glabel">예산</span>
+            <span class="dots" data-dots="7" data-kind="ok"></span><span class="gcount">7</span></div>
+          <div class="grow"><span class="glabel">통계</span>
+            <span class="dots" data-dots="7" data-kind="ok"></span><span class="gcount">7</span></div>
+          <div class="grow"><span class="glabel">홈</span>
+            <span class="dots" data-dots="4" data-kind="ok"></span><span class="gcount">4</span></div>
+          <div class="grow"><span class="glabel">알림함</span>
+            <span class="dots" data-dots="3" data-kind="ok"></span><span class="gcount">3</span></div>
+          <div class="grow"><span class="glabel">내역</span>
+            <span class="dots" data-dots="0" data-kind="hot"></span><span class="gcount">0</span></div>
+        </div>
+
+        <span class="fix"><b>처방</b>
+          내역의 월 이동 · 합계 · 검색을 <code>Panel</code> 한 장으로 묶는다.
+          날짜 그룹은 카드로 감싸지 않는다 — 목록은 목록의 리듬이 따로 있다.
+        </span>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fnum">05</div>
+      <div class="fbody">
+        <h4>비어 있을 때 할 말이 네 가지다</h4>
+        <p>
+          “아직 기록이 없어요” · “기록이 없어요” · “이 달에는 기록이 없어요” ·
+          “해당하는 알림 내역이 없습니다”. 전부 회색 한 줄이고, 다음에 뭘 하라는
+          말은 어디에도 없다. 앱을 처음 켠 사람이 가장 오래 보게 될 화면인데도 그렇다.
+        </p>
+        <span class="fix"><b>처방</b>
+          <code>EmptyState</code> 하나로 모은다. 옅은 도트 그림 + 한 줄 설명 +
+          바로 할 수 있는 버튼(직접 추가 · 앱 켜기 · 예산 정하기). 문장은 화면마다
+          다르되 생김새는 같아야 한다.
+        </span>
+      </div>
+    </div>
+
+    <div class="finding">
+      <div class="fnum">06</div>
+      <div class="fbody">
+        <h4>팔레트 밖 색이 돌아다닌다</h4>
+        <p>
+          수입 파랑 <code>#0EA5E9</code>가 세 곳에 직접 박혀 있다. 이미
+          <code>CatColor[INCOME]</code>에 같은 값이 있는데도 그렇다. 팔레트에 아예
+          없는 청록 <code>#00838F</code>도 두 곳에서 쓰인다. 색을 한 번 바꾸려면
+          다섯 곳을 찾아다녀야 한다는 뜻이다.
+        </p>
+        <span class="fix"><b>처방</b>
+          화면 코드에서 <code>Color(0xFF…)</code> 리터럴을 전부 걷어낸다.
+          색은 <code>Charts.kt</code> 팔레트와 <code>CatColor</code>에서만 나온다.
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 토큰 ============ -->
+  <section>
+    <h2>2 · 규칙</h2>
+    <p class="sec-title">고칠 곳을 정하기 전에 기준을 먼저 적는다</p>
+    <p class="sec-note">
+      아래 표가 유일한 출처가 된다. 화면 코드는 값을 직접 쓰지 않고 여기를 참조한다.
+      새 화면을 만들 때 고민할 거리가 줄어드는 것이 이 표의 진짜 목적이다.
+    </p>
+
+    <h3>글자</h3>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>이름</th><th>크기</th><th>쓰는 곳</th><th>지금</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">Display</td><td class="mono">30sp Bold</td><td>홈 대표 숫자</td><td class="now">30, 28 혼용</td></tr>
+          <tr><td class="mono">Amount</td><td class="mono">20sp Bold</td><td>카드 안 금액</td><td class="now">18, 20 혼용</td></tr>
+          <tr><td class="mono">Title</td><td class="mono">15sp SemiBold</td><td>항목 이름, 다이얼로그 제목</td><td class="now">14~17 네 종</td></tr>
+          <tr><td class="mono">Body</td><td class="mono">13sp</td><td>본문, 목록 줄</td><td class="now">13sp · 25곳</td></tr>
+          <tr><td class="mono">Caption</td><td class="mono">11sp</td><td>보조 설명, 축 라벨</td><td class="now">9~12 네 종</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>색</h3>
+    <p>
+      팔레트는 이미 <code>Charts.kt</code>에 잡혀 있다. 문제는 지키지 않는다는 것이라,
+      새로 만들기보다 쓰임을 못 박는다.
+    </p>
+    <div class="swatches">
+      <span class="sw"><span style="background:#16161A"></span>Ink · 본문</span>
+      <span class="sw"><span style="background:#8A8A94"></span>Sub · 보조</span>
+      <span class="sw"><span style="background:#E8E8ED"></span>Faint · 빈 도트</span>
+      <span class="sw"><span style="background:#2F6BFF"></span>Accent · 쓴 만큼</span>
+      <span class="sw"><span style="background:#3FA34D"></span>Good · 저축 몫</span>
+      <span class="sw"><span style="background:#8B5CF6"></span>Clash · 저축 침범</span>
+      <span class="sw"><span style="background:#E5484D"></span>Warn · 초과</span>
+    </div>
+    <p style="margin-top:14px">
+      규칙 하나만 지키면 된다. <b>파랑은 정상, 초록은 잠긴 몫, 보라는 잠긴 몫을 깨는 중,
+      빨강은 넘어섬.</b> 카테고리 색은 이 넷과 겹치지 않게 두고, 카테고리 정체를 말할 때만 쓴다.
+    </p>
+
+    <h3>간격과 모서리</h3>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>용도</th><th>값</th><th>비고</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>화면 좌우 여백</td><td class="mono">14dp</td><td>카드 바깥</td></tr>
+          <tr><td>카드 안쪽</td><td class="mono">14dp</td><td>Panel 기준</td></tr>
+          <tr><td>요소 사이</td><td class="mono">6 · 10dp</td><td>붙은 것 / 떨어진 것</td></tr>
+          <tr><td>카드 모서리</td><td class="mono">16dp</td><td>Panel</td></tr>
+          <tr><td>안쪽 요소</td><td class="mono">10dp</td><td>입력칸, 작은 카드</td></tr>
+          <tr><td>배지</td><td class="mono">4dp</td><td>순위, 태그</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>도트</h3>
+    <p>
+      도트는 장식이 아니라 이 앱의 표현 수단이다. 크기와 간격은
+      <code>Dots.kt</code>의 <code>DOT</code> · <code>DOT_GAP</code> 두 상수에서만 나온다.
+      새 그래프를 그릴 때 별도 크기를 만들지 않는다 — 한 화면에 두 종류의 알갱이가 보이면
+      두 그림처럼 읽힌다.
+    </p>
+  </section>
+
+  <!-- ============ 화면별 ============ -->
+  <section>
+    <h2>3 · 화면</h2>
+    <p class="sec-title">규칙을 화면에 적용하면 생기는 변화</p>
+    <p class="sec-note">
+      토큰 정리만으로 대부분 해결되고, 아래는 그 위에 남는 화면별 손질이다.
+    </p>
+
+    <h3>홈</h3>
+    <p>
+      정보가 위에서 아래로 좁혀지는 순서가 이미 맞다 — 이번 달, 오늘, 흐름, 목표, 최근.
+      남은 문제는 카드 종류가 많다는 것이다. 미처리 알림 · 예산 초과 · 가용 예산 · 타일 두 개가
+      전부 다른 모양이라 시선이 어디로 가야 할지 정하기 어렵다.
+      <b>경고성 카드 두 개를 한 줄로 합치고</b>, 나머지는 Panel로 통일한다.
+    </p>
+
+    <h3>내역</h3>
+    <p>
+      가장 손이 많이 갈 화면이다. 월 이동 · 합계 · 검색 · 카테고리 칩이 카드 없이
+      맨바닥에 얹혀 있어 목록과 구분되지 않는다. 상단을 Panel 한 장으로 묶고,
+      그 아래는 순수한 목록으로 둔다. 카테고리 칩은 가로 스크롤 대신
+      <b>선택된 것만 남기고 접는다</b> — 일곱 개를 항상 펼쳐 둘 이유가 없다.
+    </p>
+
+    <h3>통계</h3>
+    <p>
+      Panel 일곱 장이 세로로 이어져 스크롤이 길다. 접기가 이미 있으니
+      <b>기본 상태를 바꾼다</b> — 일별과 항목별만 펼치고 나머지는 접어서 연다.
+      차트 아래 설명 문구는 한 줄로 고정하고, 같은 말을 반복하지 않는다.
+    </p>
+
+    <h3>예산</h3>
+    <p>
+      595줄로 가장 길고, 카드가 여덟 장이다. 성격이 다른 것들이 한 화면에 섞여 있다 —
+      예산 짜기, 고정지출 관리, AI 키, 상태창 설정, 데이터 관리.
+      <b>뒤쪽 셋(AI · 상태창 · 데이터)을 “설정” 화면으로 뺀다.</b>
+      예산 탭은 예산만 다루면 된다.
+    </p>
+
+    <h3>알림함</h3>
+    <p>
+      661줄로 가장 크다. 탭 세 개가 성격이 완전히 달라서 사실상 세 화면이다.
+      구조는 맞으니 코드만 파일 셋으로 나눈다. 화면상으로는 알림 카드의
+      버튼 줄이 상태마다 달라 위치가 흔들리는 것만 잡는다 —
+      <b>버튼은 항상 오른쪽 아래 같은 자리</b>에 온다.
+    </p>
+  </section>
+
+  <!-- ============ 순서 ============ -->
+  <section>
+    <h2>4 · 순서</h2>
+    <p class="sec-title">먼저 규칙, 그다음 화면</p>
+    <p class="sec-note">
+      토큰을 먼저 세우지 않고 화면부터 손대면, 고친 화면이 또 새로운 값을 만들어 낸다.
+    </p>
+
+    <div class="phase">
+      <div class="phase-head">
+        <h4>1단계 · 토큰 세우기</h4>
+        <span class="cost">화면 변화 거의 없음</span>
+      </div>
+      <p>눈에 띄는 변화 없이 기반만 바꾼다. 이 단계가 끝나야 나머지가 싸진다.</p>
+      <ul>
+        <li><code>Type.kt</code>에 다섯 단 상수를 두고 리터럴 <code>sp</code> 치환</li>
+        <li>화면 코드의 <code>Color(0xFF…)</code> 리터럴 제거</li>
+        <li>모서리 반경 세 단으로 통일</li>
+        <li>흰 카드를 <code>Card</code>로 교체</li>
+      </ul>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head">
+        <h4>2단계 · 빈 화면과 내역 탭</h4>
+        <span class="cost">체감 큼</span>
+      </div>
+      <p>처음 켠 사람과 매일 보는 사람이 각각 가장 오래 보는 두 화면이다.</p>
+      <ul>
+        <li><code>EmptyState</code> 공통 컴포넌트 (도트 그림 + 설명 + 버튼)</li>
+        <li>내역 상단을 <code>Panel</code>로 묶기</li>
+        <li>카테고리 칩 접기</li>
+      </ul>
+    </div>
+
+    <div class="phase">
+      <div class="phase-head">
+        <h4>3단계 · 화면 쪼개기</h4>
+        <span class="cost">코드 정리 위주</span>
+      </div>
+      <p>화면은 크게 안 바뀌고 파일이 나뉜다. 다음 기능을 붙일 때 편해진다.</p>
+      <ul>
+        <li>예산 탭에서 설정 성격 카드 셋을 분리</li>
+        <li>알림함 세 탭을 파일 셋으로</li>
+        <li>통계 기본 접힘 상태 조정</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============ 안 할 것 ============ -->
+  <section>
+    <h2>5 · 미룰 것</h2>
+    <p class="sec-title">순서가 뒤바뀌면 손해인 하나</p>
+
+    <div class="skip">
+      <b>애니메이션</b>
+      <span>
+        정돈되지 않은 화면에 움직임을 얹으면 어수선함이 배가된다.
+        1단계 토큰 정리가 끝나 카드와 글자가 한 벌로 맞은 뒤에 다시 본다.
+      </span>
+    </div>
+  </section>
+
+  <p class="close">
+    이 문서의 측정값은 현재 소스를 센 것이고, 코드가 바뀌면 다시 세야 한다.
+    1단계는 화면이 거의 안 변하므로 언제 해도 안전하다.
+  </p>
+</div>
+
+<script>
+  // 도트는 개수 자체가 데이터다. 글로 "45곳" 이라고 쓰는 것보다
+  // 알갱이가 45개 늘어선 걸 보는 편이 규모를 훨씬 빨리 알려 준다.
+  document.querySelectorAll('.dots').forEach(function (el) {
+    var n = parseInt(el.dataset.dots, 10) || 0;
+    var kind = el.dataset.kind || 'on';
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < n; i++) {
+      var d = document.createElement('i');
+      d.className = kind;
+      frag.appendChild(d);
+    }
+    // 0 개인 항목은 빈 칸이 아니라 꺼진 도트 한 알로 자리를 남긴다.
+    if (n === 0) {
+      var z = document.createElement('i');
+      frag.appendChild(z);
+    }
+    el.appendChild(frag);
+  });
+</script>

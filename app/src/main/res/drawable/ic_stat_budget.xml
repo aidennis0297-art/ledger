@@ -1,0 +1,18 @@
+<!--
+  상태바에 박히는 알림 아이콘.
+  적응형 아이콘(mipmap/ic_launcher)을 여기에 쓰면 Android 8 이상에서 알림이
+  통째로 무시되거나 Bad notification 으로 죽는다. 단색 실루엣이어야 한다.
+  도트 세 칸을 쌓은 모양으로, 앱 안의 도트 그래프와 결을 맞췄다.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="#FFFFFF">
+
+    <path android:fillColor="#FFFFFF" android:pathData="M3,16h4v4h-4z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M8.5,12h4v8h-4z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M14,7h4v13h-4z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M19.5,3h1.5v17h-1.5z" />
+</vector>
