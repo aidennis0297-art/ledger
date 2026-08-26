@@ -504,9 +504,12 @@ fun RankBar(
                         // 폰트 패딩을 끄지 않으면 숫자가 박스 아래쪽에 붙는다.
                         Text(
                             "$rank",
+                            // TextStyle 을 새로 만들면 앱에 걸어 둔 글꼴이 딸려 오지 않는다.
+                            // 이 한 줄만 시스템 폰트로 튀어 보인다.
                             style = TextStyle(
                                 fontSize = T.Caption,
                                 color = Color.White,
+                                fontFamily = Pixel,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
                                 platformStyle = PlatformTextStyle(includeFontPadding = false)
@@ -521,6 +524,7 @@ fun RankBar(
                             style = TextStyle(
                                 fontSize = T.Caption,
                                 color = Sub,
+                                fontFamily = Pixel,
                                 textAlign = TextAlign.Center,
                                 platformStyle = PlatformTextStyle(includeFontPadding = false)
                             )

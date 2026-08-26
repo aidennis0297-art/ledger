@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -62,6 +64,7 @@ import com.pushledger.ui.Ink
 import com.pushledger.ui.LedgerScreen
 import com.pushledger.ui.SettingsScreen
 import com.pushledger.ui.StatsScreen
+import com.pushledger.ui.Pixel
 import com.pushledger.ui.Sub
 import com.pushledger.ui.Sym
 import com.pushledger.ui.T
@@ -86,7 +89,14 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             MaterialTheme(colorScheme = Scheme) {
-                Surface(Modifier.fillMaxSize(), color = Color.White) { Shell() }
+                // 글꼴을 여기 한 번만 건다. 화면마다 fontFamily 를 적어 두면 새 화면에서
+                // 빠뜨리는 순간 그 줄만 시스템 폰트로 튄다. 입력칸처럼 우리가 만들지 않은
+                // 컴포넌트도 이 값을 읽으므로 앱 안의 글자가 전부 같은 글꼴이 된다.
+                CompositionLocalProvider(
+                    LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = Pixel)
+                ) {
+                    Surface(Modifier.fillMaxSize(), color = Color.White) { Shell() }
+                }
             }
         }
     }

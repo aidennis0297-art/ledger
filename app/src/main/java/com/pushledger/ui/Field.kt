@@ -108,7 +108,10 @@ fun Field(
                     value = value,
                     onValueChange = onValueChange,
                     singleLine = singleLine,
+                    // 입력칸 글자도 같은 글꼴이어야 한다. 여기만 다르면 금액을 치는 동안
+                    // 화면에서 제일 자주 보는 글자가 혼자 딴 얼굴이 된다.
                     textStyle = TextStyle(
+                        fontFamily = Pixel,
                         fontSize = if (big) 17.sp else 14.sp,
                         fontWeight = if (big) FontWeight.Bold else FontWeight.Normal,
                         color = Ink,

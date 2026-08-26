@@ -1,6 +1,25 @@
 package com.pushledger.ui
 
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.sp
+import com.pushledger.R
+
+/**
+ * 이 앱의 유일한 글꼴. 갈무리11 — 11픽셀로 설계된 픽셀 폰트다.
+ *
+ * 한글을 도트로 찍으려고 직접 만들어 봤다. 낱자를 조합하는 대신 시스템 폰트를 작게
+ * 그려 격자로 읽어 냈는데, 그렇게 나온 글자는 읽을 수는 있어도 볼 만하지 않았다.
+ * 획 굵기가 제멋대로고 받침이 붙었다.
+ *
+ * 한글 11,172자를 사람이 하나씩 그려 둔 폰트를 쓰는 편이 낫다. 그게 이 폰트다.
+ * 조합해 만드는 게 아니라 글자마다 그려져 있어서 받침이 있어도 뭉개지지 않는다.
+ * 라이선스는 OFL 1.1 (저장소 루트 LICENSE-Galmuri.md).
+ *
+ * 11픽셀의 정수 배가 되는 크기에서 픽셀이 정확히 떨어진다. 그래서 큰 글자 두 단은
+ * 배수에 맞춰 뒀다 — 화면에서 제일 크게 보이는 숫자라 흐려지면 바로 티가 난다.
+ */
+val Pixel = FontFamily(Font(R.font.galmuri11))
 
 /**
  * 글자 크기는 이 다섯 단이 전부다.
@@ -13,11 +32,11 @@ import androidx.compose.ui.unit.sp
  * 여기 없는 크기가 필요하다고 느껴지면 대개는 크기가 아니라 위계가 잘못된 것이다.
  */
 object T {
-    /** 화면을 대표하는 숫자 하나. 홈의 남은 예산, 통계의 총 지출. */
-    val Display = 30.sp
+    /** 화면을 대표하는 숫자 하나. 홈의 남은 예산, 통계의 총 지출. 11의 9배. */
+    val Display = 33.sp
 
-    /** 카드 안에서 가장 큰 숫자. 오늘 가용 예산, 타일 금액. */
-    val Amount = 20.sp
+    /** 카드 안에서 가장 큰 숫자. 오늘 가용 예산, 타일 금액. 11의 6배. */
+    val Amount = 22.sp
 
     /** 항목 이름, 다이얼로그 제목. 읽는 사람이 무엇인지 먼저 아는 자리. */
     val Title = 15.sp
