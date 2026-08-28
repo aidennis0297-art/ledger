@@ -23,17 +23,22 @@ README 에 있는 내용은 여기서 반복하지 않는다. 이 문서는 **�
 | 화면 | `ui/Inbox.kt` 649 · `ui/Ledger.kt` 635 · `ui/Charts.kt` 607 · `ui/Budget.kt` 512 · `ui/AiScreen.kt` 397 · `ui/StatsScreen.kt` 386 · `ui/Home.kt` 371 · `ui/Settings.kt` 282 · `ui/StatsYear.kt` 186 |
 | 디자인 기반 | `ui/Dots.kt` 420 · `ui/Field.kt` 161 · `ui/EmptyState.kt` 104 · `ui/Burst.kt` 82 · `ui/Text.kt` 73 · `ui/Type.kt` 49 · `ui/Money.kt` 53 |
 
+### 실기기에서 확인된 것 (사용자가 폰에서 직접 봤다)
+
+- **NVIDIA API 실제 호출.** 모델 `deepseek-ai/deepseek-v4-flash-0731`. 동작한다.
+  AI 기능 전체(알림 분석·기록 검토·리포트)가 걸려 있던 단 하나가 풀렸다.
+- **상태창 알림.** 실제로 뜬다.
+- **한글 픽셀 폰트.** 실기기에서 어떻게 보이는지 확인했다.
+
 ### 실기기에서 아직 확인되지 않은 것 — 가장 중요한 미검증 영역
 
-사용자는 APK 를 폰에 설치해 쓰고 있지만, 아래는 **한 번도 성공을 확인하지 못했다.**
+사용자는 APK 를 폰에 설치해 쓰고 있지만, 아래는 **한 번도 확인하지 못했다.**
 
-- **NVIDIA API 실제 호출.** 모델 `deepseek-ai/deepseek-v4-flash-0731`.
-  성공 응답을 받아본 적이 단 한 번도 없다. AI 기능 전체(알림 분석·기록 검토·리포트)가
-  이 하나에 걸려 있다. **된다고 말하지 말 것.**
-- **상태창 알림과 홈 위젯이 실제로 뜨는지.** 코드상 원인은 다 고쳤으나 눈으로 확인 안 됨.
+- **홈 위젯이 실제로 뜨는지.** 사용자가 홈 화면에 올리려 하자 런처가 **"위젯을 추가할
+  수 없습니다"** 를 띄웠다. 원인을 찾아 고쳤다(§4-11) — 도트 16개가 맨 `android.view.View`
+  라 런처가 `initialLayout` 을 부풀리다 실패했다. **고친 뒤 실기기 확인은 아직 안 됐다.**
 - **위젯 큰 숫자 잘림.** 금액 표기가 `4만 5000원` 꼴로 길어져 18sp·한 줄·말줄임으로
-  줄여 뒀지만 실제 위젯에서 안 잘리는지 미확인.
-- **한글 픽셀 폰트가 실기기에서 어떻게 보이는지.** JVM 시뮬레이션으로 글자 모양만 확인했다.
+  줄여 뒀지만 실제 위젯에서 안 잘리는지 미확인. 위젯이 뜨는 것을 먼저 봐야 이것도 본다.
 - **스크롤 성능.** 화면의 모든 글자가 폰트 렌더링이라 문제없을 것으로 보지만 미측정.
 
 ### 실기기 데이터가 증명한, 아직 못 고친 것
@@ -195,6 +200,20 @@ SystemUI 가 그릴 때 실패하므로 앱에서 예외로 감지할 방법이 
 ### 4-10. 예시 데이터는 덮어쓰지 않는다
 `seedTestData` 가 예전에 그 달 거래를 통째로 덮어썼다(실사용 데이터 소실 버그).
 지금은 뒤에 붙이고 `Store.SEED_TAG` 표식을 남겨 `clearTestData()` 가 그것만 지운다.
+
+### 4-11. RemoteViews 는 `@RemoteView` 가 붙은 클래스만 부풀린다
+위젯 도트를 맨 `<View>` 로 그렸더니 홈 화면에 올릴 때 런처가 **"위젯을 추가할 수 없습니다"**
+를 띄웠다. 런처는 위젯을 붙이면서 `initialLayout` 을 **자기 프로세스에서** 부풀리는데,
+`android.view.View` 는 허용 목록에 없어 거기서 통째로 실패한다. 앱은 죽지도 않고
+`runCatching` 에도 안 걸린다(4-6 과 같은 이유). 지금은 `ImageView` 로 그린다.
+**위젯 레이아웃에 새 태그를 넣을 때는 그 클래스에 `@RemoteView` 가 있는지 먼저 볼 것.**
+쓸 수 있는 것: `LinearLayout` · `RelativeLayout` · `FrameLayout` · `GridLayout` ·
+`TextView` · `ImageView` · `Button` · `ImageButton` · `ProgressBar` · `Chronometer` 등.
+`ConstraintLayout` 과 맨 `View` 는 안 된다.
+
+같은 자리에서 `daily_widget_info.xml` 의 `targetCellHeight` 도 1에서 2로 올렸다.
+`minHeight` 가 90dp 인데 1칸(약 40dp)을 달라고 하고 있었다. Android 12 이상 런처는
+`targetCell*` 을 먼저 보므로 그대로 두면 도트 줄과 아랫줄이 잘린다.
 
 ---
 

@@ -50,7 +50,10 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 알림과 같은 이유로 문자가 아니라 View 로 그린다. 폰트에 좌우되지 않는다. -->
+    <!-- 알림과 같은 이유로 문자가 아니라 뷰로 그린다. 폰트에 좌우되지 않는다.
+         ImageView 인 이유: RemoteViews 는 @RemoteView 가 붙은 클래스만 부풀린다.
+         맨 android.view.View 는 그 목록에 없어서, 런처가 레이아웃을 통째로 못 읽고
+         위젯이 아예 안 뜬다. 앱 쪽 runCatching 으로는 잡히지도 않는다. 바꾸지 말 것. -->
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -58,22 +61,22 @@
         android:layout_marginTop="9dp"
         android:layout_marginBottom="9dp">
 
-        <View android:id="@+id/wd0" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd1" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd2" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd3" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd4" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd5" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd6" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd7" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd8" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd9" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd10" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd11" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd12" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd13" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd14" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <View android:id="@+id/wd15" android:layout_width="8dp" android:layout_height="8dp" />
+        <ImageView android:id="@+id/wd0" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd1" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd2" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd3" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd4" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd5" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd6" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd7" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd8" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd9" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd10" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd11" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd12" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd13" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd14" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        <ImageView android:id="@+id/wd15" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" />
     </LinearLayout>
 
     <LinearLayout
