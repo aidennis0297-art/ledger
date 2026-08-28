@@ -130,6 +130,33 @@ fun SettingsScreen() {
             }
         }
 
+        // 홈 위젯에 무엇을 보일지
+        item {
+            Panel(
+                "홈 위젯",
+                Sym.GRID
+            ) {
+                Text(
+                    "켠 것만 보입니다. 위젯을 작게 줄이면 자리에 안 들어가는 줄부터 접히고, " +
+                        "1x1 까지 줄이면 오늘 남은 돈 하나만 남습니다.",
+                    fontSize = T.Caption, color = Sub
+                )
+                Spacer(Modifier.height(10.dp))
+                WidgetToggle("도트 띠", "오늘 한도를 얼마나 썼는지", cfg.widgetDots) {
+                    Store.saveConfig(cfg.copy(widgetDots = it))
+                }
+                WidgetToggle("오늘 지출·한도", "숫자 두 개를 아래 줄에", cfg.widgetToday) {
+                    Store.saveConfig(cfg.copy(widgetToday = it))
+                }
+                WidgetToggle("이달 남은 돈", "배지 아래 작은 글씨로", cfg.widgetMonth) {
+                    Store.saveConfig(cfg.copy(widgetMonth = it))
+                }
+                WidgetToggle("월말 예상 지출", "이대로 쓰면 말일에 얼마가 될지", cfg.widgetForecast) {
+                    Store.saveConfig(cfg.copy(widgetForecast = it))
+                }
+            }
+        }
+
         // 데이터 내보내기 / 알림 보관 기간
         item {
             Panel(
@@ -278,5 +305,31 @@ fun SettingsScreen() {
         }
 
         item { Spacer(Modifier.height(30.dp)) }
+    }
+}
+
+/**
+ * 설정의 켬/끔 한 줄.
+ *
+ * 위젯 항목이 넷이라 같은 열두 줄을 네 번 적는 대신 하나로 뒀다.
+ * 항목이 하나뿐이었다면 이 함수는 없는 편이 낫다.
+ */
+@Composable
+private fun WidgetToggle(
+    title: String,
+    hint: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit
+) {
+    Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = T.Body, color = Ink)
+            Text(hint, fontSize = T.Caption, color = Sub)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedThumbColor = Accent)
+        )
     }
 }

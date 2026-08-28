@@ -29,10 +29,19 @@ object StatusNotifier {
     private const val OVER = 0xFFE5484D.toInt()    // 한도를 넘긴 상태
 
     /** 위젯 쪽 도트. 알림과 같은 칠하기 규칙을 쓰도록 id 만 따로 둔다. */
+    /**
+     * 위젯 도트 두 줄. 앞 16개가 첫 줄, 뒤 16개가 둘째 줄이다.
+     * 몇 개를 실제로 쓸지는 위젯 칸 크기가 정하므로 여기서는 자리만 다 열어 둔다.
+     */
     val WIDGET_DOTS = intArrayOf(
         R.id.wd0, R.id.wd1, R.id.wd2, R.id.wd3, R.id.wd4, R.id.wd5, R.id.wd6, R.id.wd7,
-        R.id.wd8, R.id.wd9, R.id.wd10, R.id.wd11, R.id.wd12, R.id.wd13, R.id.wd14, R.id.wd15
+        R.id.wd8, R.id.wd9, R.id.wd10, R.id.wd11, R.id.wd12, R.id.wd13, R.id.wd14, R.id.wd15,
+        R.id.wd16, R.id.wd17, R.id.wd18, R.id.wd19, R.id.wd20, R.id.wd21, R.id.wd22, R.id.wd23,
+        R.id.wd24, R.id.wd25, R.id.wd26, R.id.wd27, R.id.wd28, R.id.wd29, R.id.wd30, R.id.wd31
     )
+
+    /** 한 줄에 놓인 도트 수. 두 줄을 쓸 때 둘째 줄 인덱스를 세는 기준이 된다. */
+    const val WIDGET_DOTS_PER_ROW = 16
 
     fun update(context: Context) {
         val cfg = Store.config.value

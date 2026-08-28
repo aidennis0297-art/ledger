@@ -54,32 +54,69 @@
          ImageView 인 이유: RemoteViews 는 @RemoteView 가 붙은 클래스만 부풀린다.
          맨 android.view.View 는 그 목록에 없어서, 런처가 레이아웃을 통째로 못 읽고
          위젯이 아예 안 뜬다. 앱 쪽 runCatching 으로는 잡히지도 않는다. 바꾸지 말 것. -->
+    <!-- 띠를 두껍게 할 때는 알갱이를 키우지 말고 줄을 늘린다(불변식 13).
+         그래서 두 줄을 미리 깔아 두고, 좁거나 낮으면 뒷줄부터 접는다. -->
     <LinearLayout
+        android:id="@+id/widget_dots_wrap"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:layout_marginTop="9dp"
         android:layout_marginBottom="9dp">
 
-        <ImageView android:id="@+id/wd0" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd1" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd2" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd3" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd4" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd5" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd6" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd7" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd8" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd9" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd10" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd11" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd12" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd13" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd14" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
-        <ImageView android:id="@+id/wd15" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" />
+        <LinearLayout
+            android:id="@+id/widget_dots_row1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <ImageView android:id="@+id/wd0" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd1" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd2" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd3" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd4" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd5" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd6" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd7" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd8" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd9" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd10" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd11" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd12" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd13" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd14" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd15" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_dots_row2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="2dp"
+            android:visibility="gone">
+
+            <ImageView android:id="@+id/wd16" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd17" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd18" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd19" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd20" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd21" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd22" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd23" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd24" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd25" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd26" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd27" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd28" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd29" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd30" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+            <ImageView android:id="@+id/wd31" android:importantForAccessibility="no" android:layout_width="8dp" android:layout_height="8dp" android:layout_marginEnd="2dp" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout
+        android:id="@+id/widget_today_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -92,6 +129,8 @@
             android:layout_weight="1"
             android:text="지출 12,000원"
             android:textColor="#8A8A94"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:textSize="12sp" />
 
         <TextView
@@ -100,8 +139,23 @@
             android:layout_height="wrap_content"
             android:text="잔여 33,000원"
             android:textColor="#16161A"
+            android:maxLines="1"
+            android:ellipsize="end"
             android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <!-- 예산을 넘긴 뒤가 아니라 넘기기 전에 알려 주는 줄. 자리가 넉넉할 때만 편다. -->
+    <TextView
+        android:id="@+id/widget_forecast_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="이대로면 월 124만"
+        android:textColor="#8A8A94"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textSize="11sp"
+        android:visibility="gone" />
 
 </LinearLayout>

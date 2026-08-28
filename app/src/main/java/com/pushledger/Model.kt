@@ -196,6 +196,18 @@ data class Config(
     val showStatusNotif: Boolean = true,
     /** 상태창 알림을 도트 그림으로 그릴지. 기기가 커스텀 알림을 안 그려 주면 꺼서 쓴다. */
     val dotNotif: Boolean = false,
+    /**
+     * 홈 위젯에 무엇을 보일지.
+     *
+     * 켠다고 반드시 보이는 것은 아니다. 위젯 칸이 좁으면 `WidgetPlan` 이 뒤에서부터
+     * 접는다 — 넣어 놓고 잘리는 것보다 덜 보이는 편이 낫다는 판단이다.
+     * 반대로 끄면 칸이 아무리 넓어도 안 보인다. 사용자가 끈 것을 크기가 되살리면 안 된다.
+     */
+    val widgetDots: Boolean = true,
+    val widgetMonth: Boolean = true,
+    val widgetToday: Boolean = true,
+    /** 이달 지출 속도를 말일까지 이으면 얼마가 되는지. 기본 꺼짐 — 줄을 하나 더 먹는다. */
+    val widgetForecast: Boolean = false,
     /** 홈의 '남음' 에서 저축 목표를 빼고 볼지. 켜면 실제로 쓸 수 있는 돈만 남는다. */
     val budgetExcludesSaving: Boolean = false,
     val keepInboxDays: Int = 30,
