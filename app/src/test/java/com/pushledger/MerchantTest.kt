@@ -51,6 +51,15 @@ class MerchantTest {
         assertFalse(Merchant.same("", "스타벅스"))
     }
 
+    @Test fun 짧은_이름으로_품기_판정을_하지_않는다() {
+        // 고정지출 이름이 "KT" 면 "KTX 예매" 가 통신비로 잡혀 소비 집계에서 사라진다.
+        assertFalse(Merchant.same("KT", "KTX 예매"))
+        // 글자가 똑같으면 짧아도 같은 것이다.
+        assertTrue(Merchant.same("KT", "kt"))
+        // 세 글자부터는 품기를 본다.
+        assertTrue(Merchant.same("스타벅스", "스타벅스 강남점"))
+    }
+
     @Test fun 다_벗기고_나면_아무것도_안_남는_경우엔_원래_이름을_지킨다() {
         // 이름이 통째로 사라지면 내역에 빈 줄이 남는다.
         assertEquals("(주)", Merchant.clean("(주)"))

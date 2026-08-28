@@ -126,6 +126,21 @@ class StatsTest {
         )
     }
 
+    @Test fun 말일_구독도_잡는다() {
+        fun bill(month: Int, day: Int) = Txn(
+            id = "e$month$day", amount = 9_900L, merchant = "구독서비스",
+            at = "2026-%02d-%02dT09:00:00".format(month, day)
+        )
+        // 6/30 · 7/31 · 8/31. 날짜 숫자로는 들쭉날쭉해도 실제 간격은 31일과 31일이다.
+        assertEquals(
+            1, Stats.recurring(listOf(bill(6, 30), bill(7, 31), bill(8, 31)), Config()).size
+        )
+        // 2월이 낀 경우도 간격은 28일과 31일이라 한 달 언저리다.
+        assertEquals(
+            1, Stats.recurring(listOf(bill(1, 31), bill(2, 28), bill(3, 31)), Config()).size
+        )
+    }
+
     @Test fun 예정_고정지출과_실제_고정지출을_가른다() {
         val plan = txn("2026-08-01T09:00:00", by = "fixed", dedup = "fixed|월세|500000|2026-08")
         val real = txn("2026-08-01T09:10:00", by = "fixed", dedup = "kb|500000|2026-08-01")

@@ -108,11 +108,18 @@ object Merchant {
     fun key(raw: String): String =
         BRANCH.replace(clean(raw), "").let { JUNK.replace(it, "") }.lowercase()
 
-    /** 두 이름이 같은 가게를 가리키는지. 한쪽이 다른 쪽을 품고 있어도 같은 것으로 본다. */
+    /**
+     * 두 이름이 같은 가게를 가리키는지. 한쪽이 다른 쪽을 품고 있어도 같은 것으로 본다.
+     *
+     * 다만 짧은 열쇠로 품기 판정을 하면 엉뚱한 것을 삼킨다. 고정지출 이름이 "KT" 면
+     * "KTX 예매" 가 통신비로 잡혀 소비 집계에서 통째로 사라진다. 세 글자부터만 품기를 본다.
+     */
     fun same(a: String, b: String): Boolean {
         val x = key(a)
         val y = key(b)
         if (x.isBlank() || y.isBlank()) return false
-        return x == y || x.contains(y) || y.contains(x)
+        if (x == y) return true
+        if (minOf(x.length, y.length) < 3) return false
+        return x.contains(y) || y.contains(x)
     }
 }
