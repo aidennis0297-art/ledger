@@ -167,6 +167,33 @@ class ParserTest {
         assertTrue(m, m.contains("서산예천점"))
     }
 
+    /**
+     * 카카오의 카드 SMS 파서(kakao/credit-card-sms-parser)가 다루는데 여기 없던 것들.
+     * 전부 실제 카드사 알림에 흔한 꼴이다.
+     */
+    @Test fun 카드사_알림의_흔한_꼴들을_읽는다() {
+        // 전각 공백(U+3000). 자바 정규식의 \s 는 이걸 공백으로 안 봐서 토큰이 안 쪼개졌다.
+        val wide = expense("신한카드", "승인 12,000원　스타벅스　강남점")
+        assertEquals(12_000L, wide.amount)
+        assertTrue(wide.merchant, wide.merchant.contains("스타벅스"))
+
+        // "국민(1234)" 는 카드지 가맹점이 아니다. 괄호만 지우면 "국민" 이 남는다.
+        val card = expense("KB국민카드", "국민(1234) 승인 8,000원 투썸플레이스")
+        assertTrue(card.merchant, card.merchant.contains("투썸"))
+        assertFalse(card.merchant, card.merchant.contains("국민"))
+
+        // 가맹점 이름에 결제 낱말이 눌어붙어 오는 일이 있다.
+        val glued = expense("우리카드", "승인 5,000원 이마트사용")
+        assertEquals("이마트", glued.merchant)
+    }
+
+    @Test fun 가려진_이름도_사람으로_읽는다() {
+        // 은행과 간편결제는 이름을 가려서 보내는 일이 훨씬 많다.
+        val r = Parser.parse("토스", "김*수님에게 20,000원을 보냈어요")
+        assertTrue(r.toString(), r is Parser.Out.Expense)
+        assertTrue((r as Parser.Out.Expense).merchant, r.merchant.contains("김*수"))
+    }
+
     @Test fun 적립_알림은_거른다() {
         assertTrue(Parser.parse("스타벅스", "별 2개가 적립되었어요") is Parser.Out.None)
     }

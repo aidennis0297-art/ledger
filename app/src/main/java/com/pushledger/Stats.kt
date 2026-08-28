@@ -165,7 +165,19 @@ object Stats {
                 // 중앙값에서 20% 넘게 벌어진 달이 하나라도 있으면 고정 금액이 아니다.
                 if (amounts.any { Math.abs(it - mid) * 5 > mid }) return@inner null
 
+                // 결제일이 들쭉날쭉하면 구독이 아니다.
+                //
+                // 개수와 금액만 보면 "석 달 연속 비슷한 값을 쓴 단골 식당" 이 구독으로 잡힌다.
+                // 구독은 청구일이 정해져 있어서 날짜가 거의 안 흔들린다 — 결제일이 주말이면
+                // 하루 이틀 밀리는 정도다. 반복 결제를 가려내는 업계 방식도 금액·가맹점과 함께
+                // 주기의 규칙성(간격의 분산)을 본다.
+                //
+                // ponytail: 중앙값에서 ±5일로 본다. 말일 구독(31일 → 다음 달 1일)처럼 달을
+                // 넘나드는 경우는 못 잡는다. 놓치는 게 보이면 그때 순환 거리로 바꾼다.
                 val days = picks.map { at(it).dayOfMonth }.sorted()
+                val midDay = days[days.size / 2]
+                if (days.any { Math.abs(it - midDay) > 5 }) return@inner null
+
                 val latest = picks.maxByOrNull { it.at }!!
                 // 화면에 보일 이름은 열쇠가 아니라 가장 최근 건의 이름을 다듬어 쓴다.
                 // 열쇠는 기호를 다 턴 소문자라 사람이 읽을 것이 못 된다.

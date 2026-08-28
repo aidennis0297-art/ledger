@@ -58,8 +58,14 @@ object Parser {
             """|님이\s*[^.]{0,14}보냈|님(에게|께)\s*[^.]{0,14}받았"""
     )
 
-    /** "○○님" 에서 이름만. 송금 상대는 가맹점이 아니라 사람이라 따로 뽑는다. */
-    private val PERSON = Regex("""([가-힣]{2,4})\s*님""")
+    /**
+     * "○○님" 에서 이름만. 송금 상대는 가맹점이 아니라 사람이라 따로 뽑는다.
+     *
+     * 별표를 허용한다. 은행과 간편결제는 이름을 가려서 "김*수님" 으로 보내는 일이 훨씬 많은데,
+     * 한글만 받으면 그런 알림에서 상대를 통째로 못 뽑는다. 카카오의 카드 SMS 파서도
+     * 사람 이름 규칙을 `[\p{Hangul}\*]{2,4}님` 으로 잡는다.
+     */
+    private val PERSON = Regex("""([가-힣*]{2,4})\s*님""")
 
     /**
      * 정산금이 들어왔다는 알림.
@@ -106,8 +112,20 @@ object Parser {
             """[Ww]eb|WEB|님|원|건|누적|잔액|합계|출금|입금|페이|kakaopay|toss|했어요|했습니다)$"""
     )
 
+    /**
+     * 눈에는 공백인데 정규식의 `\s` 가 공백으로 안 보는 글자들.
+     *
+     * 자바 정규식의 `\s` 는 ASCII 공백만 센다. 그런데 카드사 알림에는 전각 공백(U+3000)이
+     * 흔히 섞여 들어오고, 그러면 "스타벅스　강남점" 이 통째로 한 덩어리가 되어 토큰이
+     * 쪼개지지 않는다. 카카오의 카드 SMS 파서도 이 글자를 따로 공백으로 바꾼다.
+     */
+    private val WIDE_SPACE = Regex("[\u3000\u00A0\u200B\uFEFF]")
+
+    /** 줄바꿈과 눈에 안 보이는 공백을 평범한 공백으로 편다. */
+    private fun flat(s: String) = WIDE_SPACE.replace(s.replace('\n', ' '), " ")
+
     fun parse(title: String, text: String): Out {
-        val body = (title + " " + text).replace('\n', ' ').trim()
+        val body = flat(title + " " + text).trim()
         if (body.isBlank()) return Out.None("본문 없음")
 
         val cancel = CANCEL.containsMatchIn(body)
@@ -199,7 +217,10 @@ object Parser {
      * 그래서 지점으로 끝나는 토큰은 혼자 두지 않고 바로 앞 토큰과 붙인다.
      */
     private fun pickMerchant(src: String): String {
-        val cleaned = MONEY.replace(src, " ")
+        val cleaned = MONEY.replace(flat(src), " ")
+            // "국민(1234)", "신한(9012)" 은 카드지 가맹점이 아니다. 괄호만 지우면
+            // "국민" 이 남아 가맹점 후보가 된다. 통째로 지운다.
+            .replace(Regex("""[가-힣A-Za-z]+\s*\([\d*]{3,4}\)"""), " ")
             .replace(Regex("""\[[^\]]*\]|\([^)]*\)"""), " ")
             .replace(Regex("""(?<![a-zA-Z가-힣0-9])[0-9]{1,3}(?:,[0-9]{3})+(?![a-zA-Z가-힣0-9])"""), " ")
             .replace(Regex("""[:\-/,~]"""), " ")
@@ -208,6 +229,9 @@ object Parser {
             .map { it.trim() }
             // 토큰 끝의 조사를 뗀다. 받침 짝이 맞을 때만 떼므로 "코나아이" 는 안 깎인다.
             .map { Hangul.stripParticle(it) }
+            // 눌어붙은 결제 낱말도 여기서 뗀다. 거르기 전에 떼야 한다 —
+            // "이마트사용" 은 "사용" 이 들어 있다는 이유로 토큰째 버려지고 있었다.
+            .map { trim(it) }
             .filter { it.length >= 2 }
             .filterNot { DROP_TOKEN.matches(it) }
             .filterNot { DROP_SUFFIX.containsMatchIn(it) }
@@ -228,6 +252,23 @@ object Parser {
 
     /** 지점을 가리키는 꼬리. 이걸로 끝나는 토큰은 그것만으로 가게를 알 수 없다. */
     private val BRANCHY = Regex("""(점|지점|매장|본점)$""")
+
+    /**
+     * 가맹점 이름에 눌어붙은 결제 낱말. 띄어쓰기 없이 붙어 오면 토큰 걸러내기로는 안 빠진다.
+     * 카카오의 카드 SMS 파서도 가맹점 이름 끝의 "사용", "일시불", "취소" 를 잘라 낸다.
+     */
+    private val GLUED_TAIL = Regex("""(사용|일시불|승인|결제|완료|취소)$""")
+
+    /** 뽑은 이름의 꼬리를 다듬는다. 두 글자 넘게 남을 때만 자른다. */
+    private fun trim(name: String): String {
+        var s = name.trim()
+        while (true) {
+            val m = GLUED_TAIL.find(s) ?: break
+            if (s.length - m.value.length < 2) break
+            s = s.dropLast(m.value.length).trim()
+        }
+        return s
+    }
 
     private fun pickMethod(body: String) = when {
         body.contains("체크") -> "체크카드"

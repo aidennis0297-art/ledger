@@ -112,6 +112,20 @@ class StatsTest {
         assertTrue(Stats.recurring(listOf(bill(6), bill(7), bill(8)), known).isEmpty())
     }
 
+    @Test fun 결제일이_들쭉날쭉하면_구독이_아니다() {
+        // 석 달 연속 비슷한 값을 쓴 단골 식당은 구독이 아니다. 개수와 금액만 보면 걸린다.
+        fun visit(month: Int, day: Int) = Txn(
+            id = "v$month", amount = 17_000L, merchant = "동네국밥",
+            at = "2026-%02d-%02dT12:00:00".format(month, day)
+        )
+        // 3일, 14일, 27일 — 날짜가 흩어져 있다.
+        assertTrue(Stats.recurring(listOf(visit(6, 3), visit(7, 14), visit(8, 27)), Config()).isEmpty())
+        // 25일, 25일, 27일 — 주말에 밀린 정도다. 구독으로 본다.
+        assertEquals(
+            1, Stats.recurring(listOf(visit(6, 25), visit(7, 25), visit(8, 27)), Config()).size
+        )
+    }
+
     @Test fun 예정_고정지출과_실제_고정지출을_가른다() {
         val plan = txn("2026-08-01T09:00:00", by = "fixed", dedup = "fixed|월세|500000|2026-08")
         val real = txn("2026-08-01T09:10:00", by = "fixed", dedup = "kb|500000|2026-08-01")
