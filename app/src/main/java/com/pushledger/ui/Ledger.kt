@@ -591,6 +591,11 @@ internal fun TxnDialog(
                         return@Button
                     }
                     if (isNew) Store.addTxn(next) else Store.updateTxn(next)
+                    // 분류를 손봤으면 그 가맹점은 앞으로 이 분류로 잡는다.
+                    // 고칠 때마다 다시 고쳐야 하는 앱은 결국 안 쓰게 된다.
+                    if (next.merchant.isNotBlank() &&
+                        (next.category != txn.category || next.subCategory != txn.subCategory)
+                    ) Store.rememberCategory(next.merchant, next.cat, next.subCategory)
                     onSaved(next)
                 }
                 onClose()

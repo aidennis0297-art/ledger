@@ -71,8 +71,28 @@ object Parser {
      */
     private val SETTLE = Regex("""정산\s*(요청|하기)?\s*(완료|받기|됨)|정산금|더치페이|N빵|1/N|회비\s*정산""")
 
-    /** 지출이 아닌 알림. 충전과 광고 등을 지출로 넣으면 통계가 통째로 틀어진다. */
-    private val NOT_SPEND = Regex("""충전|적립|이벤트|쿠폰|당첨|광고|혜택|잔액조회|미납""")
+    /**
+     * 배당금·분배금 입금.
+     *
+     * 증권사 알림은 "결제" 같은 낱말이 없어서 지출 규칙에도 안 걸리고, "입금" 만 보고
+     * 수입으로 넘기면 용돈과 한 칸에 섞인다. 배당은 따로 세어야 얼마를 받고 있는지 보인다.
+     */
+    private val DIVIDEND = Regex("""배당금|현금배당|배당\s*입금|분배금|이자\s*지급""")
+
+    /** 지출이 아닌 알림. 광고와 적립을 지출로 넣으면 통계가 통째로 틀어진다. */
+    private val NOT_SPEND = Regex("""적립|이벤트|쿠폰|당첨|광고|혜택|잔액조회|미납""")
+
+    /**
+     * 충전은 지출이 아니다.
+     *
+     * 네이버페이에 4만원을 충전하면 그 돈은 아직 안 쓴 내 돈이고, 나중에 실제로 쓸 때
+     * 결제 알림이 또 온다. 충전을 지출로 세면 같은 돈이 두 번 나간 것으로 잡힌다.
+     * 실제로 "네이버페이충전 40,000원" 이 여가/문화 지출로 기록돼 있었다.
+     *
+     * 그렇다고 조용히 버리지는 않는다. 알림함 미처리로 남겨서, 충전을 지출로 보고 싶은
+     * 사람은 직접 입력으로 넣을 수 있게 둔다.
+     */
+    private val TOPUP = Regex("""충전""")
 
     /** 이 단어 뒤에 붙는 금액은 결제액이 아니다. */
     private val NOISE_BEFORE = Regex("""(누적|잔액|총|합계|적립|할인|한도|남은|사용가능|최대)\s*$""")
@@ -96,6 +116,14 @@ object Parser {
         if (cancel) {
             val merchant = pickMerchant(text).ifBlank { pickMerchant(title) }
             return Out.Cancel(amount, merchant)
+        }
+
+        // 충전은 지갑 안에서 돈이 옮겨간 것뿐이다. 쓸 때 결제 알림이 또 온다.
+        if (TOPUP.containsMatchIn(body)) return Out.None("충전은 지출이 아님 (쓸 때 따로 잡힘)")
+
+        // 배당금은 수입이되 용돈과 다른 칸이다.
+        if (DIVIDEND.containsMatchIn(body) && !SPEND.containsMatchIn(body)) {
+            return Out.Income(amount, pickMerchant(text).ifBlank { pickMerchant(title) }, "계좌")
         }
 
         // 정산 문구가 붙어 있으면 방향을 따질 것도 없다. 정산은 언제나 내가 받는 쪽이다.
@@ -160,10 +188,17 @@ object Parser {
     }
 
     /**
-     * 문장을 띄어쓰기로 쪼갠 뒤 가맹점이 아닌 토큰(금액, 카드사, 시간, 승인 등)을 하나씩 지우고
-     * 가장 유력한 토큰을 고른다.
+     * 문장을 띄어쓰기로 쪼갠 뒤 가맹점이 아닌 토큰(금액, 카드사, 시간, 승인 등)을 지우고
+     * 남은 것 중에서 가맹점을 고른다.
+     *
+     * 예전에는 남은 토큰 중 가장 긴 것 하나만 집었다. 그런데 카드 알림의 가맹점은
+     * "홍콩반점0410 서산예천점" 처럼 브랜드와 지점이 떨어져 오는 일이 흔하고,
+     * 지점 쪽이 더 길면 브랜드가 통째로 날아간다. 실제로 내역에 "서산예천점",
+     * "예천점", "서산효행길점" 만 남아 어느 가게인지 알 수 없는 줄들이 있었다.
+     *
+     * 그래서 지점으로 끝나는 토큰은 혼자 두지 않고 바로 앞 토큰과 붙인다.
      */
-        private fun pickMerchant(src: String): String {
+    private fun pickMerchant(src: String): String {
         val cleaned = MONEY.replace(src, " ")
             .replace(Regex("""\[[^\]]*\]|\([^)]*\)"""), " ")
             .replace(Regex("""(?<![a-zA-Z가-힣0-9])[0-9]{1,3}(?:,[0-9]{3})+(?![a-zA-Z가-힣0-9])"""), " ")
@@ -171,16 +206,28 @@ object Parser {
 
         val tokens = cleaned.split(Regex("""\s+"""))
             .map { it.trim() }
+            // 토큰 끝의 조사를 뗀다. 받침 짝이 맞을 때만 떼므로 "코나아이" 는 안 깎인다.
+            .map { Hangul.stripParticle(it) }
             .filter { it.length >= 2 }
             .filterNot { DROP_TOKEN.matches(it) }
             .filterNot { DROP_SUFFIX.containsMatchIn(it) }
-
-        return tokens
             .filterNot { DATEISH.matches(it) }
             .filterNot { it.all { c -> c.isDigit() } }
             .filterNot { CANCEL.containsMatchIn(it) || SPEND.containsMatchIn(it) }
-            .maxByOrNull { it.length } ?: ""
+
+        if (tokens.isEmpty()) return ""
+
+        val best = tokens.maxByOrNull { it.length } ?: return ""
+        val i = tokens.indexOf(best)
+        // 지점은 대개 브랜드 뒤에 온다("홍콩반점0410 서산예천점"). 뒤를 먼저 보고,
+        // 고른 것 자체가 지점이면 앞을 붙여 어느 브랜드의 지점인지 살린다.
+        tokens.getOrNull(i + 1)?.let { if (BRANCHY.containsMatchIn(it)) return "$best $it" }
+        if (BRANCHY.containsMatchIn(best) && i > 0) return tokens[i - 1] + " " + best
+        return best
     }
+
+    /** 지점을 가리키는 꼬리. 이걸로 끝나는 토큰은 그것만으로 가게를 알 수 없다. */
+    private val BRANCHY = Regex("""(점|지점|매장|본점)$""")
 
     private fun pickMethod(body: String) = when {
         body.contains("체크") -> "체크카드"
@@ -195,6 +242,10 @@ object Parser {
         val m = merchant.lowercase()
         fun has(vararg k: String) = k.any { m.contains(it) }
         return when {
+            // 배당은 증권사 이름과 같이 오는 일이 많아서 금융보다 먼저 본다.
+            // 그러지 않으면 "키움증권 배당금" 이 "증권" 에 걸려 금융/투자로 간다.
+            has("배당", "분배금") -> Cat.INCOME
+
             // 1. 식비 (외식, 카페, 배달, 식료품)
             has(
                 "스타벅스", "카페", "커피", "coffee", "cafe", "이디야", "투썸", "메가커피", "컴포즈", "빽다방", "폴바셋", "할리스", "디저트", "베이커리", "파리바게", "뚜레쥬르", "설빙", "공차",
@@ -234,11 +285,13 @@ object Parser {
                 "적금", "예금", "청약", "isa", "irp", "펀드", "cma",
                 "대출", "이자", "원리금", "신용대출", "담보대출", "전세대출",
                 "보험", "생명", "화재", "해상", "손해", "다이렉트", "실비", "암보험", "자동차보험",
-                "수수료", "카드연회비", "연회비", "이체수수료"
+                "수수료", "카드연회비", "연회비", "이체수수료",
+                // 학자금 대출 이자가 "기타지출" 로 쌓여 있었다. 갚는 돈은 금융이다.
+                "장학재단", "학자금", "주택도시기금", "국민행복기금"
             ) -> Cat.FINANCE
 
-            // 6. 수입 (용돈, 보너스, 중고판매, 환급금/이자)
-            has("입금", "송금받음", "용돈", "상여", "보너스", "급여", "월급", "수당", "당근", "중고나라", "번개장터", "중고", "캐시백", "환급", "배당금") -> Cat.INCOME
+            // 6. 수입 (용돈, 보너스, 배당금, 중고판매, 환급금/이자)
+            has("입금", "송금받음", "용돈", "상여", "보너스", "급여", "월급", "수당", "당근", "중고나라", "번개장터", "중고", "캐시백", "환급", "배당") -> Cat.INCOME
 
             else -> Cat.ETC
         }
@@ -275,14 +328,17 @@ object Parser {
                 else -> "문화/컨텐츠"
             }
             Cat.FINANCE -> when {
+                has("장학재단", "학자금", "주택도시기금", "국민행복기금") -> "대출이자"
                 has("주식", "증권", "투자", "etf", "키움", "토스증권", "코인", "업비트", "빗썸", "가상자산", "적금", "예금", "청약", "펀드", "isa") -> "투자/저축"
                 has("보험", "생명", "화재", "해상", "손해", "실비", "다이렉트") -> "보험료"
                 has("수수료", "연회비", "이체수수료") -> "이체/수수료"
                 else -> "대출이자"
             }
             Cat.INCOME -> when {
+                // 배당은 환급·이자와 다른 칸이다. 얼마를 받고 있는지 따로 세야 보인다.
+                has("배당", "분배금") -> "배당금"
                 has("중고", "당근", "번개") -> "중고판매"
-                has("이자", "환급", "캐시백", "배당") -> "환급금/이자"
+                has("이자", "환급", "캐시백") -> "환급금/이자"
                 has("용돈", "보너스", "상여", "급여", "월급", "알바") -> "용돈/보너스"
                 else -> "기타수입"
             }

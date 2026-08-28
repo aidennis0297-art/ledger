@@ -65,10 +65,17 @@ class NotifListener : NotificationListenerService() {
             if (state == Raw.PENDING && cfg.autoAi) AiQueue.enqueueAuto(applicationContext, id)
         }
 
-        // 1. 등록되지 않은 앱이면 금액처럼 보일 때만 "등록 제안"으로 알림함에 남긴다
+        // 1. 안 켠 앱의 알림도 전부 남긴다.
+        //
+        // 예전에는 금액이 보이는 것만 남겼다. 그러면 결제 알림이 금액을 특이한 꼴로
+        // 적어 오는 앱은 흔적조차 없이 사라져서, 왜 안 잡혔는지 확인할 방법이 없었다.
+        // 이제는 차단한 앱 말고는 전부 쌓아 두고 상태로만 갈라 놓는다.
+        // 금액이 보이면 "이 앱 켤까요" 제안으로, 아니면 잡담 칸으로 간다.
         if (pkg !in cfg.allowedPkgs) {
             if (Parser.looksLikeMoney(title, body)) {
                 log(Raw.SUGGEST, "결제 앱으로 등록하면 자동으로 가계부에 기록됩니다")
+            } else {
+                log(Raw.NOISE, "안 켠 앱의 알림")
             }
             return
         }
@@ -99,14 +106,26 @@ class NotifListener : NotificationListenerService() {
                     byName || byDay
                 }
                 val isFixed = matchedFixed != null
-                val cat = if (isFixed) Cat.of(matchedFixed?.category) else Parser.guessCat(out.merchant)
-                val subCat = if (isFixed) "고정지출" else Parser.guessSubCat(out.merchant, cat)
 
                 // 이름은 저장 전에 다듬는다. 여기서 안 하면 통계·반복 결제·취소 대조가
                 // 전부 결제사가 붙인 껍데기를 그대로 안고 간다.
                 val merchantName =
                     if (isFixed) (matchedFixed?.name ?: out.merchant)
                     else Merchant.clean(out.merchant).ifBlank { label }
+
+                // 사용자가 이 가맹점의 분류를 정해 둔 적이 있으면 그것이 규칙보다 우선한다.
+                // 규칙은 이름만 보고 짐작하는 것이라 같은 곳을 매번 같은 식으로 틀린다.
+                val remembered = if (isFixed) null else Store.recallCategory(merchantName)
+                val cat = when {
+                    isFixed -> Cat.of(matchedFixed?.category)
+                    remembered != null -> remembered.first
+                    else -> Parser.guessCat(out.merchant)
+                }
+                val subCat = when {
+                    isFixed -> "고정지출"
+                    remembered != null -> remembered.second
+                    else -> Parser.guessSubCat(out.merchant, cat)
+                }
 
                 // 예정으로 미리 넣어 둔 같은 고정지출이 있으면 지우고 이 건으로 대체한다.
                 if (isFixed && matchedFixed != null) {

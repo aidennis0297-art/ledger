@@ -136,6 +136,37 @@ class ParserTest {
         assertTrue(merchant, merchant.contains("스타벅스"))
     }
 
+    /** 실제 내역 CSV 에서 잘못 잡혀 있던 것들. 같은 실수가 다시 들어오지 않게 막는다. */
+    @Test fun 실제_기록에서_틀렸던_것들() {
+        // 배당금은 용돈이 아니라 배당금 칸이다.
+        val div = Parser.parse("키움증권", "배당금 374원이 입금되었습니다")
+        assertTrue(div.toString(), div is Parser.Out.Income)
+        assertEquals(374L, (div as Parser.Out.Income).amount)
+        assertEquals(Cat.INCOME, Parser.guessCat("키움증권 배당금"))
+        assertEquals("배당금", Parser.guessSubCat("키움증권 배당금", Cat.INCOME))
+
+        // 충전은 지출이 아니다. 쓸 때 결제 알림이 또 온다.
+        assertTrue(Parser.parse("네이버페이", "네이버페이충전 40,000원 결제완료") is Parser.Out.None)
+
+        // 학자금 대출 이자가 기타지출로 쌓여 있었다.
+        assertEquals(Cat.FINANCE, Parser.guessCat("한국장학재단"))
+        assertEquals("대출이자", Parser.guessSubCat("한국장학재단", Cat.FINANCE))
+
+        // 조사가 붙은 채로 가맹점이 되어 있었다.
+        val r = Parser.parse("신한카드", "승인 2,887원 한국장학재단에서 출금")
+        assertTrue(r.toString(), r is Parser.Out.Expense)
+        assertEquals("한국장학재단", (r as Parser.Out.Expense).merchant)
+    }
+
+    @Test fun 지점만_남기지_않고_브랜드를_함께_잡는다() {
+        // "서산예천점" 만 남아 어느 가게인지 알 수 없는 줄들이 있었다.
+        val r = Parser.parse("신한카드", "승인 54,800원 홍콩반점0410 서산예천점")
+        assertTrue(r.toString(), r is Parser.Out.Expense)
+        val m = (r as Parser.Out.Expense).merchant
+        assertTrue(m, m.contains("홍콩반점"))
+        assertTrue(m, m.contains("서산예천점"))
+    }
+
     @Test fun 적립_알림은_거른다() {
         assertTrue(Parser.parse("스타벅스", "별 2개가 적립되었어요") is Parser.Out.None)
     }

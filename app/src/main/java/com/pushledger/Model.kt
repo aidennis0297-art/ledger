@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  * - 여가 (문화/컨텐츠, 교통/차량, 취미/운동, 쇼핑)
  * - 금융 (투자/저축, 대출이자, 보험료, 수수료)
  * - 고정지출 (월세, 관리비, 공과금, 통신비, 구독료)
- * - 수입 (용돈, 보너스, 중고판매, 환급금/이자)
+ * - 수입 (용돈, 보너스, 배당금, 중고판매, 환급금/이자)
  * - 기타 (경조사, 선물, 기타지출)
  */
 enum class Cat(val label: String, val isExpense: Boolean = true, val subs: List<String>) {
@@ -18,7 +18,7 @@ enum class Cat(val label: String, val isExpense: Boolean = true, val subs: List<
     LEISURE("여가", true, listOf("문화/컨텐츠", "교통/차량", "취미/운동", "쇼핑/의류")),
     FINANCE("금융", true, listOf("투자/저축", "대출이자", "보험료", "이체/수수료")),
     HOUSING("고정지출", true, listOf("월세", "관리비", "공과금", "통신비", "구독료")),
-    INCOME("수입", false, listOf("용돈/보너스", "중고판매", "환급금/이자", "기타수입")),
+    INCOME("수입", false, listOf("용돈/보너스", "배당금", "중고판매", "환급금/이자", "기타수입")),
     ETC("기타", true, listOf("경조사", "선물", "기타지출"));
 
     companion object {
@@ -221,6 +221,14 @@ data class Config(
      * 그 비용은 사용자가 알고 켜야 한다.
      */
     val autoAi: Boolean = false,
+    /**
+     * 가맹점별로 사용자가 정한 분류. 열쇠는 [Merchant.key], 값은 "CAT|세부분류".
+     *
+     * 규칙과 AI 는 가맹점 이름만 보고 짐작하는 것이라 같은 곳을 매번 같은 식으로 틀린다.
+     * 사용자가 내역에서 한 번 고치면 그 뒤로는 그 분류를 쓴다. 짐작보다 사람이 정한 것이
+     * 언제나 옳고, 고칠 때마다 다시 고쳐야 하는 앱은 결국 안 쓰게 된다.
+     */
+    val catMemory: Map<String, String> = emptyMap(),
     val profile: UserProfile = UserProfile(),
     val latestReport: AiReport? = null,
     /** 만들어 둔 리포트 보관함. 최신이 앞에 온다. */

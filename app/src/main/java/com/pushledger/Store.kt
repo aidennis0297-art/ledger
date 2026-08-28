@@ -86,8 +86,11 @@ object Store {
             // 금액까지 같아야 "이미 있음" 으로 보면, 관리비처럼 달마다 액수가 달라지는
             // 항목은 실제 출금이 이미 들어와 있는데도 예정 건이 또 만들어진다. 그 둘이
             // 내역에서 나란히 두 줄로 보이던 것이 중복의 정체였다. 이름으로만 센다.
+            // by 를 가리지 않는다. 손으로 넣은 월세가 이미 있는데 by=="fixed" 인 것만
+            // 세는 바람에 자동 생성분이 또 만들어져, 58만원짜리 월세가 두 줄로 남아 있었다.
+            // 그달에 그 이름으로 뭐가 하나라도 있으면 고정지출은 이미 처리된 것이다.
             val already = monthTxns.any {
-                !it.canceled && (it.dedup == fixedDedup || (it.by == "fixed" && it.merchant == f.name))
+                !it.canceled && (it.dedup == fixedDedup || Merchant.same(it.merchant, f.name))
             }
             if (!already) {
                 val dt = targetDate.atTime(9, 0, 0)
@@ -382,6 +385,59 @@ object Store {
         return sb.toString()
     }
 
+    /**
+     * 받은 알림 원문을 통째로 CSV 로 뽑는다.
+     *
+     * 거래로 만들어진 것뿐 아니라 **폰에 온 알림을 그대로** 내보낸다. 규칙이 왜 못 읽었는지는
+     * 원문을 봐야 알 수 있고, 원문은 이 앱 안에만 있다. 파일에서 직접 읽으므로 화면이
+     * 들고 있는 상한([INBOX_MAX])에 잘리지 않는다.
+     *
+     * 줄바꿈은 공백으로 편다. 알림 본문에는 줄바꿈이 흔한데 그대로 두면 CSV 한 줄이
+     * 여러 줄로 쪼개져 표 계산기에서 열이 통째로 밀린다.
+     */
+    fun exportRawCsv(days: Int = 90): String = synchronized(lock) {
+        val today = LocalDate.now()
+        val rows = (0 until days.coerceAtLeast(1)).flatMap { d ->
+            val f = inboxFile(today.minusDays(d.toLong()))
+            if (!f.exists()) emptyList()
+            else runCatching { json.decodeFromString<List<Raw>>(f.readText()) }.getOrDefault(emptyList())
+        }.sortedByDescending { it.postedAt }
+
+        val sb = StringBuilder("날짜,시각,앱,패키지,제목,내용,상태,사유\n")
+        rows.forEach { r ->
+            fun q(v: String) =
+                "\"" + v.replace('\n', ' ').replace('\r', ' ').replace("\"", "\"\"") + "\""
+            sb.append(r.postedAt.substring(0, 10)).append(',')
+                .append(r.postedAt.substring(11)).append(',')
+                .append(q(r.appLabel)).append(',')
+                .append(q(r.pkg)).append(',')
+                .append(q(r.title)).append(',')
+                .append(q(r.text)).append(',')
+                .append(q(stateLabel(r.state))).append(',')
+                .append(q(r.note)).append('\n')
+        }
+        return sb.toString()
+    }
+
+    /** 상태 값을 사람이 읽는 말로. CSV 를 열었을 때 pending 이 아니라 미처리로 보이게. */
+    private fun stateLabel(s: String) = when (s) {
+        Raw.PENDING -> "미처리"
+        Raw.DONE -> "기록됨"
+        Raw.FAILED -> "실패"
+        Raw.IGNORED -> "무시됨"
+        Raw.SUGGEST -> "안 켠 앱"
+        Raw.NOISE -> "금액 없음"
+        else -> s
+    }
+
+    /** 알림 원문 CSV 를 파일로 쓴다. */
+    fun writeRawCsvFile(days: Int = 90): File = synchronized(lock) {
+        val dir = File(root, "export").apply { mkdirs() }
+        val f = File(dir, "알림기록_${LocalDate.now()}.csv")
+        f.writeText("\uFEFF" + exportRawCsv(days))
+        return f
+    }
+
     /** CSV 를 앱 전용 export 폴더에 파일로 쓰고 그 파일을 돌려준다. */
     fun writeCsvFile(months: Int = 24): File = synchronized(lock) {
         val dir = File(root, "export").apply { mkdirs() }
@@ -450,17 +506,23 @@ object Store {
      * 다른 카테고리로 들어가는 걸 막는다. 사용자가 손으로 고친 분류가 그대로 기준이 된다.
      */
     fun catHints(max: Int = 20): String = synchronized(lock) {
+        // 사용자가 손으로 정한 것이 가장 확실한 근거다. 그것부터 싣는다.
+        val fixed = config.value.catMemory.entries.take(max / 2).joinToString(", ") { (k, v) ->
+            val p = v.split("|")
+            "$k=${Cat.of(p.getOrNull(0)).label}/${p.getOrNull(1).orEmpty()}"
+        }
         val now = YearMonth.now()
         val txns = (readMonth(now) + readMonth(now.minusMonths(1)))
             .filter { !it.canceled && it.merchant.isNotBlank() }
-        if (txns.isEmpty()) return ""
-        return txns.groupBy { it.merchant }
+        if (txns.isEmpty()) return fixed
+        val recent = txns.groupBy { it.merchant }
             .entries.sortedByDescending { it.value.size }.take(max)
             .joinToString(", ") { (m, list) ->
                 val latest = list.maxByOrNull { it.at }!!
                 if (latest.subCategory.isNotBlank()) "$m=${latest.cat.label}/${latest.subCategory}"
                 else "$m=${latest.cat.label}"
             }
+        return listOf(fixed, recent).filter { it.isNotBlank() }.joinToString(", ")
     }
 
     private fun merchantMatch(key: String, other: String): Boolean {
@@ -476,7 +538,7 @@ object Store {
             val f = inboxFile(today.minusDays(d.toLong()))
             if (!f.exists()) emptyList()
             else runCatching { json.decodeFromString<List<Raw>>(f.readText()) }.getOrDefault(emptyList())
-        }.sortedByDescending { it.postedAt }
+        }.sortedByDescending { it.postedAt }.take(INBOX_MAX)
     }
 
     fun addRaw(r: Raw) = synchronized(lock) {
@@ -486,12 +548,30 @@ object Store {
             runCatching { json.decodeFromString<List<Raw>>(f.readText()) }.getOrDefault(emptyList())
         else emptyList()
         writeAtomic(f, json.encodeToString(cur + r))
-        inbox.value = (inbox.value + r).sortedByDescending { it.postedAt }
+        inbox.value = (inbox.value + r).sortedByDescending { it.postedAt }.take(INBOX_MAX)
     }
 
-    /** 같은 알림이 갱신되며 다시 들어오는 것을 막는다. 알림함이 같은 줄로 도배되지 않게. */
+    /**
+     * 같은 알림이 갱신되며 다시 들어오는 것을 막는다.
+     *
+     * 최근 것만 본다. 이제 폰에 오는 알림을 전부 쌓으므로 목록이 수천 줄이 되는데,
+     * 같은 알림이 갱신되며 다시 오는 것은 몇 분 안의 일이라 앞쪽만 봐도 충분하다.
+     * 알림 한 건마다 수천 줄을 훑으면 그게 곧 배터리다.
+     */
     fun hasRawDedup(dedup: String): Boolean =
-        dedup.isNotBlank() && inbox.value.any { it.dedup == dedup }
+        dedup.isNotBlank() && inbox.value.asSequence().take(DEDUP_SCAN).any { it.dedup == dedup }
+
+    private const val DEDUP_SCAN = 400
+
+    /**
+     * 화면이 들고 있을 알림 수의 상한.
+     *
+     * 파일에는 보관 기간(기본 30일)만큼 다 남는다. 여기 상한은 메모리에만 걸린다 —
+     * 알림을 전부 모으기 시작하면 하루 수백 건이 쌓이고, 30일치를 통째로 메모리에
+     * 올리면 목록을 한 번도 안 열어도 수십 MB 를 물고 있게 된다.
+     * 내보내기는 파일에서 직접 읽으므로 여기서 잘린 것도 다 나온다.
+     */
+    private const val INBOX_MAX = 3000
 
     fun setRawState(id: String, state: String, note: String = "") = synchronized(lock) {
         val target = inbox.value.firstOrNull { it.id == id } ?: return
@@ -549,6 +629,29 @@ object Store {
     }
 
 
+    /**
+     * 이 가맹점은 이 분류라고 기억해 둔다. 사용자가 내역에서 고칠 때 부른다.
+     * 지점이 달라도 같은 열쇠가 나오므로 "스타벅스 강남점" 을 고치면 역삼점도 따라온다.
+     */
+    fun rememberCategory(merchant: String, cat: Cat, sub: String) {
+        val k = Merchant.key(merchant)
+        if (k.isBlank()) return
+        saveConfig(config.value.copy(catMemory = config.value.catMemory + (k to "${cat.name}|$sub")))
+    }
+
+    /** 기억해 둔 분류. 없으면 null 이고, 그때만 규칙이 짐작한다. */
+    fun recallCategory(merchant: String): Pair<Cat, String>? {
+        val v = config.value.catMemory[Merchant.key(merchant)] ?: return null
+        val p = v.split("|")
+        return Cat.of(p.getOrNull(0)) to p.getOrNull(1).orEmpty()
+    }
+
+    /** 사용자가 정한 분류를 잊는다. 잘못 기억시킨 것을 되돌릴 길이 있어야 한다. */
+    fun forgetCategory(merchant: String) {
+        val k = Merchant.key(merchant)
+        saveConfig(config.value.copy(catMemory = config.value.catMemory - k))
+    }
+
     /** 마지막 AI 일괄 분석 결과. 빈 문자열이면 화면에서 그 줄이 사라진다. */
     fun setLastAiRun(msg: String) = saveConfig(config.value.copy(lastAiRun = msg))
 
@@ -588,7 +691,11 @@ object Store {
     /** 제안대로 고친다. 되돌릴 수 있게 제안 자체는 남긴다. */
     fun applyFix(id: String): Boolean = synchronized(lock) {
         val fx = fixes.value.firstOrNull { it.id == id && !it.applied } ?: return false
-        if (fx.drop) deleteTxn(fx.before) else updateTxn(fx.after)
+        if (fx.drop) deleteTxn(fx.before) else {
+            updateTxn(fx.after)
+            // 제안을 받아들인 것도 사용자가 그 분류를 정한 것이다. 다음부터 안 물어본다.
+            rememberCategory(fx.after.merchant, fx.after.cat, fx.after.subCategory)
+        }
         writeFixes(fixes.value.map { if (it.id == id) it.copy(applied = true) else it })
         return true
     }

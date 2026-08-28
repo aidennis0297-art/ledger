@@ -132,15 +132,20 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
                         fail++
                     }
                     else -> {
+                        // 사용자가 정해 둔 분류가 있으면 AI 가 뭐라고 했든 그것을 쓴다.
+                        val name = Merchant.clean(res.merchant).ifBlank { raw.appLabel }
+                        val known = Store.recallCategory(name)
+                        val cat = known?.first ?: res.category
+                        val sub = known?.second ?: res.subCategory
                         val added = Store.addTxn(
                             Txn(
                                 id = Store.newId(), amount = res.amount,
-                                merchant = Merchant.clean(res.merchant).ifBlank { raw.appLabel },
-                                category = res.category.name,
-                                subCategory = res.subCategory,
+                                merchant = name,
+                                category = cat.name,
+                                subCategory = sub,
                                 at = raw.postedAt,
                                 method = res.method, sourcePkg = raw.pkg,
-                                by = if (res.category == Cat.FINANCE && res.subCategory == "투자/저축") "invest" else "ai",
+                                by = if (cat == Cat.FINANCE && sub == "투자/저축") "invest" else "ai",
                                 dedup = raw.dedup
                             )
                         )

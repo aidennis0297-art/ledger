@@ -162,8 +162,40 @@ fun SettingsScreen() {
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Ink)
-                    ) { Text("CSV 내보내기", fontSize = T.Body) }
+                    ) { Text("가계부 CSV", fontSize = T.Body) }
+
+                    // 알림 원문은 이 앱 안에만 있다. 규칙이 왜 못 읽었는지는 원문을 봐야
+                    // 알 수 있으므로, 거래로 만들어진 것뿐 아니라 받은 알림을 통째로 뽑는다.
+                    Button(
+                        onClick = {
+                            runCatching {
+                                val f = Store.writeRawCsvFile()
+                                val uri = androidx.core.content.FileProvider.getUriForFile(
+                                    ctx, ctx.packageName + ".fileprovider", f
+                                )
+                                ctx.startActivity(
+                                    android.content.Intent.createChooser(
+                                        android.content.Intent().apply {
+                                            action = android.content.Intent.ACTION_SEND
+                                            type = "text/csv"
+                                            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }, "알림 기록 내보내기"
+                                    )
+                                )
+                            }.onFailure {
+                                Toast.makeText(ctx, "내보내기 실패: ${it.message}", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
+                    ) { Text("알림 기록 CSV", fontSize = T.Body) }
                 }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "알림 기록은 켠 앱뿐 아니라 폰에 온 알림을 전부 담습니다. " +
+                        "왜 안 잡혔는지 확인하거나 규칙을 고칠 근거로 씁니다.",
+                    fontSize = T.Caption, color = Sub
+                )
                 Spacer(Modifier.height(12.dp))
                 Text("알림 보관 기간", fontSize = T.Body, color = Ink)
                 Spacer(Modifier.height(6.dp))

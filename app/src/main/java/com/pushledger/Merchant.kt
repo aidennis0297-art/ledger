@@ -45,6 +45,12 @@ object Merchant {
     /** 지점 표기. 비교할 때만 떼고 화면에는 남긴다. */
     private val BRANCH = Regex("""\s*\d*호?점$""")
 
+    /**
+     * 도메인 부스러기. "i.kiwoom." 이 그대로 가맹점으로 남아 있었다.
+     * 앞뒤의 점과 한 글자짜리 조각을 털어 낸다.
+     */
+    private val DOTTY = Regex("""^[a-zA-Z]\.|^\.+|\.+$""")
+
     /** 비교 열쇠에서 털어 낼 기호. */
     private val JUNK = Regex("""[\s()\[\]*·.,\-_/'"]""")
 
@@ -70,7 +76,13 @@ object Merchant {
         "카카오모빌리티" to "카카오T",
         "네이버파이낸셜" to "네이버페이",
         "요기요" to "요기요",
-        "우버코리아" to "우버"
+        "우버코리아" to "우버",
+        // 실제 기록에 이렇게 남아 있던 것들이다.
+        "비바리퍼블리카" to "토스",
+        "kiwoom" to "키움증권",
+        "키움증권" to "키움증권",
+        "한국장학재단" to "한국장학재단",
+        "aliexpress" to "알리익스프레스"
     )
 
     /** 화면과 기록에 남길 이름. */
@@ -80,6 +92,8 @@ object Merchant {
 
         s = PREFIX.replace(s, "")
         s = SUFFIX.replace(s, "")
+        var d: String
+        do { d = s; s = DOTTY.replace(s, "") } while (s != d)
         // 꼬리표는 겹쳐 붙는다. "SKT 통신요금 2026.08 3회차" 같은 것을 한 겹씩 벗긴다.
         var before: String
         do { before = s; s = BILLING.replace(s, "") } while (s != before)
