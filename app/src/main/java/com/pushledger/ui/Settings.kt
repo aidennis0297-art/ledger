@@ -260,7 +260,7 @@ fun SettingsScreen() {
                 }
 
                 Spacer(Modifier.height(12.dp))
-                Text("알림 보관 기간", fontSize = T.Body, color = Ink)
+                Text("잡담 알림 보관 기간", fontSize = T.Body, color = Ink)
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
                     listOf(7, 14, 30, 60).forEach { d ->
@@ -275,7 +275,29 @@ fun SettingsScreen() {
                     }
                 }
                 Text(
-                    "지난 알림은 날짜째 지워집니다. 길게 두면 앱이 무거워집니다.",
+                    "금액이 안 보이는 알림과 무시한 알림입니다. 길게 두면 앱이 무거워집니다.",
+                    fontSize = T.Caption, color = Sub,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+
+                Spacer(Modifier.height(12.dp))
+                Text("결제 알림 원문 보관 기간", fontSize = T.Body, color = Ink)
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), Arrangement.spacedBy(6.dp)) {
+                    listOf(30, 90, 180, 365).forEach { d ->
+                        FilterChip(
+                            selected = cfg.keepMoneyDays == d,
+                            onClick = {
+                                Store.saveConfig(cfg.copy(keepMoneyDays = d))
+                                Store.sweep()
+                            },
+                            label = { Text(if (d >= 365) "1년" else "${d}일", fontSize = T.Caption) }
+                        )
+                    }
+                }
+                Text(
+                    "규칙이 왜 못 읽었는지는 원문을 봐야 압니다. 잘못 잡힌 결제를 고치려면 " +
+                        "이 원문이 남아 있어야 해서, 잡담보다 길게 둡니다.",
                     fontSize = T.Caption, color = Sub,
                     modifier = Modifier.padding(top = 6.dp)
                 )

@@ -14,13 +14,13 @@ README 에 있는 내용은 여기서 반복하지 않는다. 이 문서는 **�
 
 ## 1. 현재 상태 (2026-08-28 실측)
 
-소스 32개 파일 9,814줄 + 테스트 7개 파일 1,007줄. **유닛 테스트 71개 전부 통과.**
+소스 32개 파일 9,933줄 + 테스트 7개 파일 1,041줄. **유닛 테스트 72개 전부 통과.**
 `assembleDebug` 성공. APK 13.7MB(픽셀 폰트 포함).
 
 | 영역 | 파일 |
 |---|---|
-| 도메인 | `Store.kt` 837 · `Coach.kt` 544 · `Nvidia.kt` 530 · `Stats.kt` 410 · `Parser.kt` 393 · `MainActivity.kt` 331 · `Model.kt` 250 · `DailyWidgetProvider.kt` 229 · `NotifListener.kt` 221 · `AiWorker.kt` 205 · `StatusNotifier.kt` 189 · `Merchant.kt` 125 · `AiReview.kt` 121 · `Hangul.kt` 77 · `AiJob.kt` 58 · `Money.kt` 43 |
-| 화면 | `ui/Inbox.kt` 649 · `ui/Ledger.kt` 635 · `ui/Charts.kt` 607 · `ui/Budget.kt` 512 · `ui/AiScreen.kt` 397 · `ui/StatsScreen.kt` 386 · `ui/Home.kt` 371 · `ui/Settings.kt` 335 · `ui/StatsYear.kt` 186 |
+| 도메인 | `Store.kt` 991 · `Coach.kt` 531 · `Nvidia.kt` 530 · `Stats.kt` 477 · `Parser.kt` 393 · `MainActivity.kt` 331 · `Model.kt` 272 · `DailyWidgetProvider.kt` 229 · `NotifListener.kt` 221 · `AiWorker.kt` 205 · `StatusNotifier.kt` 189 · `Merchant.kt` 125 · `AiReview.kt` 121 · `Hangul.kt` 77 · `AiJob.kt` 58 · `Money.kt` 43 |
+| 화면 | `ui/Inbox.kt` 649 · `ui/Ledger.kt` 635 · `ui/Charts.kt` 607 · `ui/Budget.kt` 512 · `ui/Home.kt` 434 · `ui/AiScreen.kt` 397 · `ui/Settings.kt` 393 · `ui/StatsScreen.kt` 386 · `ui/StatsYear.kt` 186 |
 | 디자인 기반 | `ui/Dots.kt` 420 · `ui/Field.kt` 161 · `ui/EmptyState.kt` 104 · `ui/Burst.kt` 82 · `ui/Text.kt` 73 · `ui/Type.kt` 49 · `ui/Money.kt` 53 |
 
 ### 실기기에서 확인된 것 (사용자가 폰에서 직접 봤다)
@@ -304,6 +304,14 @@ SystemUI 가 그릴 때 실패하므로 앱에서 예외로 감지할 방법이 
 알림함은 메모리에 최근 3,000건만 들고 있고 파일에는 보관 기간만큼 다 남는다.
 **내보내기는 파일에서 직접 읽으므로** 메모리 상한에 안 잘린다.
 
+보관 기간은 **두 칸**이다. 잡담(`keepInboxDays`, 기본 30일)과 돈이 걸린 알림
+원문(`keepMoneyDays`, 기본 90일). `Store.sweep()` 이 둘 다 지난 날은 파일째 지우고,
+잡담만 지난 날은 파일을 다시 써서 `Raw.isMoney` 인 줄만 남긴다.
+
+`Raw.isMoney` 는 **남길 것이 아니라 버릴 것을 센다**(`IGNORED` 와 `NOISE` 만 잡담).
+상태가 새로 생겼을 때 목록에 넣는 것을 잊으면, 남길 것을 세는 쪽은 새 상태의 원문을
+조용히 일찍 지운다. 반대로 적으면 잊어도 오래 남을 뿐이다 — 틀릴 거면 이쪽으로 틀린다.
+
 ---
 
 ## 6. 남은 작업
@@ -317,9 +325,9 @@ SystemUI 가 그릴 때 실패하므로 앱에서 예외로 감지할 방법이 
   도트 부스러기뿐이다.
 
 ### 해 볼 만하지만 급하지 않은 것
-- 알림함 잡담 보관 기간을 결제 알림과 따로 두기(지금은 한 칸으로 묶여 있다)
 - 예산 소진 예정일("이 속도면 24일에 끝") — `Stats.monthPace` 와 같은 재료로 나온다
-- 카테고리별 월말 예상 — 어느 항목이 먼저 예산을 넘길지. `catProgress` 에 재료가 있다
+- 위젯의 '월 XXX' 는 `monthRemain` 이라 고정지출이 안 빠진 값이다(§5). 빼는 편이
+  맞다고 보면 홈 큰 숫자까지 같이 바뀌므로 **사용자에게 물어보고** 할 것
 
 ### 하지 말 것 (검토하고 버린 것)
 - **형태소 분석기(Nori/KOMORAN)** — 사전만 수십 MB. 조사 처리는 `Hangul.kt` 의

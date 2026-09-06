@@ -58,7 +58,9 @@ object Store {
         // 예시가 필요하면 예산 탭의 "테스트 데이터 채우기" 를 직접 누르면 된다.
         checkAutoFixed(ym)
         month.value = readMonth(ym)
-        inbox.value = readInboxRecent(config.value.keepInboxDays)
+        // 보관 중인 것은 다 읽는다. 결제 알림을 오래 두기로 해 놓고 화면에서
+        // 잡담 기준으로 잘라 버리면, 정작 고칠 근거가 파일에만 있고 눈에는 안 보인다.
+        inbox.value = readInboxRecent(maxOf(config.value.keepInboxDays, config.value.keepMoneyDays))
         fixes.value = readFixes()
         sweep()
         StatusNotifier.update(ctx)
@@ -530,7 +532,7 @@ object Store {
      * 줄바꿈은 공백으로 편다. 알림 본문에는 줄바꿈이 흔한데 그대로 두면 CSV 한 줄이
      * 여러 줄로 쪼개져 표 계산기에서 열이 통째로 밀린다.
      */
-    fun exportRawCsv(days: Int = 90): String = synchronized(lock) {
+    fun exportRawCsv(days: Int = config.value.keepMoneyDays): String = synchronized(lock) {
         val today = LocalDate.now()
         val rows = (0 until days.coerceAtLeast(1)).flatMap { d ->
             val f = inboxFile(today.minusDays(d.toLong()))
@@ -566,7 +568,7 @@ object Store {
     }
 
     /** 알림 원문 CSV 를 파일로 쓴다. */
-    fun writeRawCsvFile(days: Int = 90): File = synchronized(lock) {
+    fun writeRawCsvFile(days: Int = config.value.keepMoneyDays): File = synchronized(lock) {
         val dir = File(root, "export").apply { mkdirs() }
         val f = File(dir, "알림기록_${LocalDate.now()}.csv")
         f.writeText("\uFEFF" + exportRawCsv(days))
@@ -743,10 +745,27 @@ object Store {
 
     /** 보관 기간이 지난 알림 파일을 날짜째 지운다. 여기가 앱이 느려지지 않는 이유다. */
     fun sweep() = synchronized(lock) {
-        val cut = LocalDate.now().minusDays(config.value.keepInboxDays.toLong())
+        val cfg = config.value
+        val today = LocalDate.now()
+        val chatCut = today.minusDays(cfg.keepInboxDays.toLong())
+        // 돈이 걸린 알림은 더 오래 둔다. 규칙이 왜 못 읽었는지는 원문을 봐야 알 수 있는데,
+        // 잡담과 같은 칸에 묶어 두면 앱을 가볍게 하려다 고칠 근거까지 같이 지워진다.
+        val moneyCut = today.minusDays(maxOf(cfg.keepInboxDays, cfg.keepMoneyDays).toLong())
+
         File(root, "inbox").listFiles()?.forEach { f ->
             val d = runCatching { LocalDate.parse(f.name.removeSuffix(".json")) }.getOrNull()
-            if (d != null && d.isBefore(cut)) f.delete()
+                ?: return@forEach
+            when {
+                // 둘 다 지났으면 날짜째 지운다. 줄을 하나씩 보지 않아 가장 싸다.
+                d.isBefore(moneyCut) -> f.delete()
+                // 잡담만 지날 때는 파일을 다시 써서 돈 걸린 줄만 남긴다.
+                d.isBefore(chatCut) -> {
+                    val kept = runCatching {
+                        json.decodeFromString<List<Raw>>(f.readText()).filter { it.isMoney }
+                    }.getOrNull() ?: return@forEach
+                    if (kept.isEmpty()) f.delete() else writeAtomic(f, json.encodeToString(kept))
+                }
+            }
         }
     }
 

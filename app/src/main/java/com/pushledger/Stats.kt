@@ -376,6 +376,36 @@ object Stats {
     }
 
     /**
+     * **아직 안 넘겼지만 이 속도면 넘길** 항목과 그 예상 초과액.
+     *
+     * [overBudgetCats] 는 이미 넘긴 것만 알려 준다. 그건 손쓸 수 있는 시점이 지난 뒤다.
+     * 식비를 열흘 만에 예산의 절반을 썼으면 말일에 예산의 1.5배가 되는데, 지금 화면에는
+     * 아무 신호도 없다가 넘긴 날 갑자기 빨간 줄이 뜬다.
+     *
+     * 이미 넘긴 항목은 여기서 뺀다 — 같은 항목이 '초과' 와 '넘길 것 같음' 두 줄로
+     * 동시에 뜨면 어느 쪽을 봐야 할지 모른다. 넘긴 것은 [overBudgetCats] 몫이다.
+     *
+     * 달 초에는 표본이 며칠뿐이라 예상이 크게 튄다. 사흘은 지나야 말을 꺼낸다 —
+     * 1일에 한 번 크게 쓴 것으로 "이 속도면 30배" 라고 하면 그 표시를 아무도 안 믿는다.
+     */
+    fun catPace(
+        cfg: Config,
+        month: List<Txn>,
+        today: java.time.LocalDate = java.time.LocalDate.now()
+    ): List<Pair<Cat, Long>> {
+        if (today.dayOfMonth < 3) return emptyList()
+        val spent = byCat(month).toMap()
+        return cfg.catBudget.mapNotNull { (k, budget) ->
+            val cat = Cat.of(k)
+            if (budget <= 0 || cat == Cat.HOUSING) return@mapNotNull null
+            val catSpent = spent[cat] ?: 0L
+            if (catSpent > budget) return@mapNotNull null          // 이미 넘긴 건 저쪽 몫
+            val pace = catSpent / today.dayOfMonth * today.lengthOfMonth()
+            if (pace > budget) cat to (pace - budget) else null
+        }.sortedByDescending { it.second }
+    }
+
+    /**
      * 하루 가용 예산 (N빵).
      */
     fun dailyBudget(cfg: Config, month: List<Txn>, today: java.time.LocalDate = java.time.LocalDate.now()): DailyStatus {

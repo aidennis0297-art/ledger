@@ -186,6 +186,32 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
             }
         }
 
+        // 넘긴 뒤가 아니라 넘기기 전에. 이미 넘긴 항목은 위 '예산 초과' 가 맡으므로
+        // 여기서는 빠져 있다 — 같은 항목이 두 줄로 동시에 뜨면 어느 쪽을 봐야 할지 모른다.
+        val pacing = Stats.catPace(cfg, month, today)
+        if (pacing.isNotEmpty()) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)
+                        .clip(RoundedCornerShape(10.dp)).background(Card)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.size(6.dp).background(Sub))
+                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text(
+                            "이 속도면 넘김", fontSize = T.Body,
+                            fontWeight = FontWeight.Bold, color = Sub
+                        )
+                        Text(
+                            pacing.joinToString(" · ") { "${it.first.label} +${wonShort(it.second)}" },
+                            fontSize = T.Body, color = Ink
+                        )
+                    }
+                }
+            }
+        }
+
         // 총액이 늘어난 이유가 습관인지 사건 하나인지 갈라 준다. 평소와 다른 큰 결제가
         // 없으면 이 줄 자체가 안 나온다 — 늘 떠 있는 표시는 곧 안 읽히는 표시가 된다.
         val odd = Stats.outliers(month)

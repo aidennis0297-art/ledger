@@ -176,6 +176,40 @@ class StatsTest {
     }
 
     /**
+     * '이 속도면 넘김' 은 이미 넘긴 것과 겹치지 않아야 한다.
+     * 같은 항목이 '초과' 와 '넘길 것 같음' 두 줄로 동시에 뜨면 어느 쪽을 봐야 할지 모른다.
+     */
+    @Test fun 이_속도면_넘길_항목은_이미_넘긴_것과_겹치지_않는다() {
+        val cfg = Config(
+            monthlyBudget = 1_000_000,
+            catBudget = mapOf(Cat.FOOD.name to 300_000, Cat.LEISURE.name to 200_000)
+        )
+        val d10 = java.time.LocalDate.of(2026, 8, 10)   // 31일 달의 열흘째
+
+        fun buy(cat: Cat, amount: Long, day: Int) = Txn(
+            id = "$cat$day", amount = amount, merchant = "가게",
+            category = cat.name, at = "2026-08-%02dT12:00:00".format(day)
+        )
+
+        // 식비 15만(예산 30만 안이지만 이 속도면 46만) · 여가 25만(이미 20만을 넘김)
+        val month = listOf(buy(Cat.FOOD, 150_000, 5), buy(Cat.LEISURE, 250_000, 6))
+
+        assertEquals(listOf(Cat.LEISURE), Stats.overBudgetCats(cfg, month).map { it.first })
+        assertEquals(listOf(Cat.FOOD), Stats.catPace(cfg, month, d10).map { it.first })
+
+        // 두 목록이 겹치는 항목이 있으면 안 된다.
+        val over = Stats.overBudgetCats(cfg, month).map { it.first }.toSet()
+        assertTrue(Stats.catPace(cfg, month, d10).none { it.first in over })
+
+        // 달 초 사흘은 표본이 며칠뿐이라 예상이 크게 튄다. 말을 꺼내지 않는다.
+        assertTrue(Stats.catPace(cfg, month, java.time.LocalDate.of(2026, 8, 2)).isEmpty())
+
+        // 이 속도로 가도 예산 안이면 아무것도 안 뜬다.
+        val calm = listOf(buy(Cat.FOOD, 50_000, 5))
+        assertTrue(Stats.catPace(cfg, calm, d10).isEmpty())
+    }
+
+    /**
      * 튀는 결제. 표본이 적을 때 아무거나 튄다고 하면 그 표시를 아무도 안 믿게 된다.
      */
     @Test fun 튀는_결제는_표본이_모였을_때만_고른다() {
