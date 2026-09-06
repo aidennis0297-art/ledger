@@ -182,30 +182,14 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
 
         val daily = Stats.dailyBudget(cfg, month, today)
 
-        if (daily.overBudgetCats.isNotEmpty()) {
-            item {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)
-                        .clip(RoundedCornerShape(10.dp)).background(Card)
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(Modifier.size(6.dp).background(Warn))
-                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text("예산 초과", fontSize = T.Body, fontWeight = FontWeight.Bold, color = Warn)
-                        Text(
-                            daily.overBudgetCats.joinToString(" · ") { "${it.first.label} +${wonShort(it.second)}" },
-                            fontSize = T.Body, color = Ink
-                        )
-                    }
-                }
-            }
-        }
-
-        // 넘긴 뒤가 아니라 넘기기 전에. 이미 넘긴 항목은 위 '예산 초과' 가 맡으므로
-        // 여기서는 빠져 있다 — 같은 항목이 두 줄로 동시에 뜨면 어느 쪽을 봐야 할지 모른다.
+        // 넘긴 것과 넘길 것 같은 것을 **한 카드에** 담는다.
+        //
+        // 둘은 같은 이야기의 앞뒤다 — 이미 넘긴 항목은 `catPace` 에서 빠지므로 겹치지도
+        // 않는다. 그런데 카드를 따로 두니 알림·초과·속도·큰 결제가 네 줄로 쌓여, 정작
+        // 앱을 여는 이유인 '오늘 가용 예산' 이 그만큼 아래로 밀렸다. 오늘 이 화면에
+        // 줄을 셋 더하면서 그 누적을 안 세어 본 탓이다.
         val pacing = Stats.catPace(cfg, month, today)
-        if (pacing.isNotEmpty()) {
+        if (daily.overBudgetCats.isNotEmpty() || pacing.isNotEmpty()) {
             item {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)
@@ -213,42 +197,30 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
                         .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(Modifier.size(6.dp).background(Sub))
+                    // 넘긴 것이 하나라도 있으면 경고색, 아직 넘기기 전이면 차분하게.
+                    Box(
+                        Modifier.size(6.dp)
+                            .background(if (daily.overBudgetCats.isNotEmpty()) Warn else Sub)
+                    )
                     Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text(
-                            "이 속도면 넘김", fontSize = T.Body,
-                            fontWeight = FontWeight.Bold, color = Sub
-                        )
-                        Text(
-                            pacing.joinToString(" · ") { "${it.first.label} +${wonShort(it.second)}" },
-                            fontSize = T.Body, color = Ink
-                        )
-                    }
-                }
-            }
-        }
-
-        // 총액이 늘어난 이유가 습관인지 사건 하나인지 갈라 준다. 평소와 다른 큰 결제가
-        // 없으면 이 줄 자체가 안 나온다 — 늘 떠 있는 표시는 곧 안 읽히는 표시가 된다.
-        val odd = Stats.outliers(month)
-        if (odd.isNotEmpty()) {
-            item {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)
-                        .clip(RoundedCornerShape(10.dp)).background(Card)
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(Modifier.size(6.dp).background(Accent))
-                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
-                        Text(
-                            "평소보다 큰 결제", fontSize = T.Body,
-                            fontWeight = FontWeight.Bold, color = Accent
-                        )
-                        Text(
-                            odd.joinToString(" · ") { "${it.merchant} ${wonShort(it.amount)}원" },
-                            fontSize = T.Body, color = Ink
-                        )
+                        if (daily.overBudgetCats.isNotEmpty()) {
+                            Text("예산 초과", fontSize = T.Body, fontWeight = FontWeight.Bold, color = Warn)
+                            Text(
+                                daily.overBudgetCats.joinToString(" · ") { "${it.first.label} +${wonShort(it.second)}" },
+                                fontSize = T.Body, color = Ink
+                            )
+                        }
+                        if (pacing.isNotEmpty()) {
+                            if (daily.overBudgetCats.isNotEmpty()) Spacer(Modifier.height(6.dp))
+                            Text(
+                                "이 속도면 넘김", fontSize = T.Body,
+                                fontWeight = FontWeight.Bold, color = Sub
+                            )
+                            Text(
+                                pacing.joinToString(" · ") { "${it.first.label} +${wonShort(it.second)}" },
+                                fontSize = T.Body, color = Ink
+                            )
+                        }
                     }
                 }
             }
@@ -298,6 +270,35 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
         }
 
 
+
+        // 총액이 늘어난 이유가 습관인지 사건 하나인지 갈라 준다. 평소와 다른 큰 결제가
+        // 없으면 이 줄 자체가 안 나온다 — 늘 떠 있는 표시는 곧 안 읽히는 표시가 된다.
+        //
+        // 하루 예산 **아래**에 둔다. 이건 급한 경고가 아니라 참고라서, 앱을 여는 이유인
+        // 오늘 쓸 수 있는 돈보다 위에 있으면 그 숫자를 밀어낸다.
+        val odd = Stats.outliers(month)
+        if (odd.isNotEmpty()) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)
+                        .clip(RoundedCornerShape(10.dp)).background(Card)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.size(6.dp).background(Accent))
+                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text(
+                            "평소보다 큰 결제", fontSize = T.Body,
+                            fontWeight = FontWeight.Bold, color = Accent
+                        )
+                        Text(
+                            odd.joinToString(" · ") { "${it.merchant} ${wonShort(it.amount)}원" },
+                            fontSize = T.Body, color = Ink
+                        )
+                    }
+                }
+            }
+        }
 
         item {
             Panel("이번 달 흐름", Sym.LINE, "자세히", goStats) {
