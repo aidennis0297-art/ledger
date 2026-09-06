@@ -531,7 +531,10 @@ private fun RawCard(raw: Raw) {
 @Composable
 private fun AppSettingsTab() {
     val cfg by Store.config.collectAsState()
+    val inbox by Store.inbox.collectAsState()
     val ctx = LocalContext.current
+    // 알림이 들어오면 같이 다시 센다. 앱마다 (온 알림, 거래가 된 것) 두 숫자다.
+    val counts = remember(inbox) { Store.appCounts() }
     var query by remember { mutableStateOf("") }
     var showAllApps by remember { mutableStateOf(false) }
 
@@ -603,6 +606,23 @@ private fun AppSettingsTab() {
                         }
                     }
                     Text(pkg, fontSize = T.Caption, color = Sub)
+                    // 켜 뒀는데 기록이 0건인 앱을 눈에 띄게 한다. 삼성페이가 목록에
+                    // 있으면서 몇 달 동안 한 건도 안 잡히던 것을 아무도 몰랐다 —
+                    // 알림은 오는데 금액 꼴을 못 읽어서였다. 숫자가 있으면 바로 보인다.
+                    val (seen, done, money) = counts[pkg] ?: Triple(0, 0, 0)
+                    if (isAllowed && seen > 0) {
+                        // 금액이 보이는 알림이 왔는데 한 건도 안 잡혔을 때만 경고한다.
+                        // 그냥 0건인 것은 이상하지 않다 — 네이버 알림 열 건은 전부
+                        // 인증·예약 안내라 잡힐 것이 애초에 없었다.
+                        val stuck = money > 0 && done == 0
+                        Text(
+                            "알림 ${seen}건 · 기록 ${done}건" +
+                                if (stuck) " — 금액이 보이는 ${money}건이 안 잡힙니다" else "",
+                            fontSize = T.Caption,
+                            color = if (stuck) Warn else Sub,
+                            fontWeight = if (stuck) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
                     if (cfg.blockedPkgs.contains(pkg)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("무시 중", fontSize = T.Caption, color = Warn, fontWeight = FontWeight.Bold)

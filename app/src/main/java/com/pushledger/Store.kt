@@ -740,6 +740,30 @@ object Store {
         }.sortedByDescending { it.postedAt }.take(INBOX_MAX)
     }
 
+    /**
+     * 앱마다 알림이 몇 건 왔고 그중 몇 건이 거래가 됐는지. `패키지 → (전체, 기록됨)`.
+     *
+     * **허용 목록에 있다고 잡히는 것이 아니다.** 삼성페이는 처음부터 목록에 있었는데
+     * 금액을 `₩7,100` 꼴로 보내는 탓에 기록된 건이 한 건도 없었고, 그걸 몇 달 동안
+     * 아무도 눈치채지 못했다. 알림은 84건이 왔는데 가계부에는 0건이었다.
+     *
+     * 화면이 들고 있는 목록에서 센다. 파일까지 훑으면 앱 관리 화면을 열 때마다
+     * 날짜 파일을 수십 개 여는 셈이라, 보관 기간 안의 최근 것만으로 충분하다 —
+     * '있는데 안 잡힌다' 는 최근 며칠만 봐도 드러난다.
+     */
+    fun appCounts(): Map<String, Triple<Int, Int, Int>> =
+        inbox.value.groupBy { it.pkg }.mapValues { (_, v) ->
+            Triple(
+                v.size,
+                v.count { it.state == Raw.DONE },
+                // 금액이 보이는지는 **지금 규칙으로 다시 본다.** 저장된 상태로 세면
+                // 정작 찾고 싶은 경우를 놓친다 — 삼성 월렛 84건은 그때 `₩` 를 못 읽어서
+                // 전부 '금액 없음' 으로 저장돼 있었다. 규칙이 좋아진 뒤 다시 세야
+                // "금액은 보이는데 안 잡힌다" 가 드러난다.
+                v.count { Parser.looksLikeMoney(it.title, it.text) }
+            )
+        }
+
     fun addRaw(r: Raw) = synchronized(lock) {
         val d = LocalDateTime.parse(r.postedAt, ts).toLocalDate()
         val f = inboxFile(d)
