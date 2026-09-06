@@ -583,9 +583,18 @@ internal fun TxnDialog(
                         memo = memo.trim()
                     )
                     // 날짜가 다른 달로 옮겨졌으면 원래 달에서 지우고 새 달에 넣는다.
+                    //
+                    // 넣을 때 `addTxn` 을 쓰면 안 된다. 그쪽은 중복 판정을 거치는데,
+                    // 옮겨 간 달에 같은 금액이 비슷한 시각에 있으면 false 를 돌려준다.
+                    // 지우기는 이미 끝난 뒤라 **그 거래가 통째로 사라진다.** 시각은
+                    // 원래 것을 지키므로(`keepTime`) 매달 같은 시간에 같은 금액을 쓰는
+                    // 결제일수록 잘 걸린다 — 가맹점까지 같으면 3분 창에도 걸린다.
+                    //
+                    // 옮기기는 새 결제가 아니라 있던 줄의 이사다. `restoreTxn` 이 그
+                    // 뜻에 맞는다 — 중복 판정을 건너뛰고 같은 id 가 이미 있으면 안 넣는다.
                     if (!isNew && next.at.substring(0, 7) != txn.at.substring(0, 7)) {
                         Store.deleteTxn(txn)
-                        Store.addTxn(next)
+                        Store.restoreTxn(next)
                         onSaved(next)
                         onClose()
                         return@Button
