@@ -245,7 +245,11 @@ cd "$SP" && ./gradlew testDebugUnitTest
     - 글꼴 → `ui/Type.kt` 의 `Pixel` (MainActivity 에서 `LocalTextStyle` 에 한 번만 건다)
     - 도트 크기·간격 → `ui/Dots.kt` 의 `DOT` / `DOT_GAP`
     - 모서리 → 배지 4dp · 안쪽 10dp · 카드 16dp
-    - 금액 문자열 → `Money.kt` 의 `won()` / `wonShort()`
+    - 금액 문자열 → `Money.kt` 의 `won()` / `wonShort()`. **알림함 사유 줄과 메모까지
+      전부 포함이다** — 열 곳이 `${amount}원` 으로 날 숫자를 찍고 있어서 `59800원` 처럼
+      보였다. 유일한 예외는 `Nvidia.kt` 의 프롬프트다. 사람이 아니라 모델이 파싱할
+      자리라 `59800원` 이 정확하다.
+      검사: `grep -rn "amount}원" app/src/main | grep -v won(`
 
 13. **홈에 경고 카드를 쌓지 않는다.** 앱을 여는 이유는 `오늘 가용 예산` 하나다.
     그 위에 카드를 하나 더 얹을 때마다 정작 보러 온 숫자가 아래로 밀린다.

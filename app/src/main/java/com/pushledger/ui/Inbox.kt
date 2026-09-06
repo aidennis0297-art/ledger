@@ -68,6 +68,7 @@ import com.pushledger.Raw
 import com.pushledger.Stats
 import com.pushledger.Store
 import com.pushledger.UserProfile
+import com.pushledger.won
 import java.time.LocalDateTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -341,7 +342,7 @@ private fun RawCard(raw: Raw) {
             onSaved = { t ->
                 // 알림함 줄도 같이 정리한다. 안 그러면 손으로 넣고도 미처리로 남아
                 // 다음에 또 처리해야 할 것처럼 보인다.
-                Store.setRawState(raw.id, Raw.DONE, "직접 입력: ${t.merchant} ${t.amount}원")
+                Store.setRawState(raw.id, Raw.DONE, "직접 입력: ${t.merchant} ${won(t.amount)}")
             },
             onClose = { manual = false }
         )

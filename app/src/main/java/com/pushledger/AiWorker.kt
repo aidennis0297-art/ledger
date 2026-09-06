@@ -134,7 +134,7 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
                         Store.recallCategory(
                             Merchant.clean(res.merchant).ifBlank { raw.appLabel }
                         ) == null -> {
-                        Store.setRawState(id, Raw.IGNORED, "수입은 기록하지 않습니다 (${res.amount}원) · 넣으려면 직접 입력")
+                        Store.setRawState(id, Raw.IGNORED, "수입은 기록하지 않습니다 (${won(res.amount)}) · 넣으려면 직접 입력")
                         ok++
                     }
                     res.amount <= 0L -> {
@@ -163,9 +163,9 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
                         // 안 들어간 이유는 하나뿐이다 — 같은 결제가 이미 기록돼 있다.
                         // 그걸 실패로 적으면 사용자는 뭔가 잘못된 줄 알고 다시 누른다.
                         if (added) {
-                            Store.setRawState(id, Raw.DONE, "AI: ${res.merchant} ${res.amount}원")
+                            Store.setRawState(id, Raw.DONE, "AI: ${res.merchant} ${won(res.amount)}")
                         } else {
-                            Store.setRawState(id, Raw.IGNORED, "AI: 이미 기록된 결제 (${res.amount}원)")
+                            Store.setRawState(id, Raw.IGNORED, "AI: 이미 기록된 결제 (${won(res.amount)})")
                         }
                         ok++
                     }

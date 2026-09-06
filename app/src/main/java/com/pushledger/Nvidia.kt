@@ -425,6 +425,8 @@ $CATS
 
         val lines = txns.mapIndexed { i, t ->
             "${i + 1}. ${t.at.substring(0, 16)} | ${t.merchant.ifBlank { "이름없음" }} | " +
+                // 여기만 `won()` 을 안 쓴다(불변식 12 의 유일한 예외). 사람이 읽는 자리가
+                // 아니라 모델이 파싱할 자리라, `5만 9800원` 보다 `59800원` 이 정확하다.
                 "${t.amount}원 | ${t.cat.label}/${t.subCategory.ifBlank { "없음" }} | ${t.method}"
         }.joinToString("\n")
 

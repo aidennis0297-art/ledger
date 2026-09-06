@@ -156,7 +156,7 @@ class NotifListener : NotificationListenerService() {
                 // 고장난 것만 모인 곳이 되고, 무엇이 들어와서 어떻게 읽혔는지 확인할 데가 없다.
                 log(
                     if (added) Raw.DONE else Raw.IGNORED,
-                    if (added) "규칙: $merchantName ${out.amount}원"
+                    if (added) "규칙: $merchantName ${won(out.amount)}"
                     else "10초 안에 같은 금액이 이미 기록돼 건너뜀"
                 )
             }
@@ -175,7 +175,7 @@ class NotifListener : NotificationListenerService() {
             // 무시로 돌아오는 죽은 버튼이었다.
             is Parser.Out.Income -> {
                 val sender = out.sender.ifBlank { "입금" }
-                log(Raw.IGNORED, "수입은 기록하지 않습니다 — $sender ${out.amount}원 · 넣으려면 직접 입력")
+                log(Raw.IGNORED, "수입은 기록하지 않습니다 — $sender ${won(out.amount)} · 넣으려면 직접 입력")
             }
 
             is Parser.Out.Settle -> {
@@ -187,16 +187,16 @@ class NotifListener : NotificationListenerService() {
                 // 규칙이 뜻을 모른다는 뜻이고, 모를 때 임의로 정하면 조용히 틀린다.
                 val hit = Store.applySettlement(out.amount, out.from, at)
                 if (hit != null) {
-                    log(Raw.DONE, "규칙: ${hit.merchant} 결제에서 정산 ${out.amount}원 뺌")
+                    log(Raw.DONE, "규칙: ${hit.merchant} 결제에서 정산 ${won(out.amount)} 뺌")
                 } else {
-                    log(Raw.PENDING, "짝지을 지출을 못 찾았습니다 (${out.amount}원)")
+                    log(Raw.PENDING, "짝지을 지출을 못 찾았습니다 (${won(out.amount)})")
                 }
             }
 
             is Parser.Out.Cancel -> {
                 // 취소는 수입이 아니다. 원 거래를 찾아 무효화하고, 못 찾으면 사용자에게 고르게 한다.
                 val hit = Store.applyCancel(out.amount, out.merchant, at)
-                if (hit != null) log(Raw.DONE, "규칙: ${hit.merchant} ${hit.amount}원 결제 취소 처리")
+                if (hit != null) log(Raw.DONE, "규칙: ${hit.merchant} ${won(hit.amount)} 결제 취소 처리")
                 else log(Raw.PENDING, "취소 알림인데 원 거래를 못 찾았습니다")
             }
 

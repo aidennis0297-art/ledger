@@ -294,7 +294,7 @@ object Store {
                 }
                 .maxByOrNull { it.at } ?: return null
 
-            val note = "정산 ${amount}원 받음" + if (from.isBlank()) "" else " ($from)"
+            val note = "정산 ${won(amount)} 받음" + if (from.isBlank()) "" else " ($from)"
             val after = hit.copy(
                 amount = hit.amount - amount,
                 memo = if (hit.memo.isBlank()) note else "${hit.memo} · $note"
