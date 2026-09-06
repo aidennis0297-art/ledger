@@ -24,7 +24,22 @@ object Parser {
         data class None(val reason: String) : Out
     }
 
-    private val MONEY = Regex("""([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)\s*원""")
+    /**
+     * 금액. `12,000원` 과 `₩12,000` 두 꼴을 받는다.
+     *
+     * 삼성 월렛(삼성페이)은 제목을 `₩7,100 결제 완료`, 본문을 `씨유 휘경행복점` 으로 보낸다.
+     * **원 기호가 앞에 붙고 '원' 글자가 없다.** '원' 만 보던 때는 이 알림이 전부
+     * '금액 못 찾음' 으로 떨어졌고, 사용자 실기기 알림 기록에서 편의점·PC방·마트 결제
+     * 18건 약 24만원이 통째로 가계부에 안 들어가 있었다. 삼성페이는 허용 앱 목록에
+     * 처음부터 있었는데도 기록된 건이 한 건도 없던 이유가 이것이다.
+     *
+     * 두 꼴을 한 정규식에 담아 [pickAmount] 의 순서 판정(누적·잔액 걸러내기)을 그대로 쓴다.
+     * '원' 꼴이 group 1, '₩' 꼴이 group 2 다.
+     */
+    private val MONEY = Regex(
+        """([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)\s*원""" +
+            """|₩\s*([0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)"""
+    )
     private val CANCEL = Regex("""취소|환불""")
     private val SPEND = Regex("""결제|승인|사용|출금|자동이체|일시불|할부""")
 
@@ -199,7 +214,9 @@ object Parser {
         for (m in MONEY.findAll(body)) {
             val before = body.substring(0, m.range.first)
             if (NOISE_BEFORE.containsMatchIn(before)) continue
-            val num = m.groupValues[1].replace(",", "").toLongOrNull()
+            // 두 꼴 중 걸린 쪽을 집는다. '원' 꼴이 1번, '₩' 꼴이 2번 자리다.
+            val digits = m.groupValues[1].ifBlank { m.groupValues[2] }
+            val num = digits.replace(",", "").toLongOrNull()
             if (num != null && num > 0) return num
         }
         return null

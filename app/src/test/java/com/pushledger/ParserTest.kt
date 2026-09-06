@@ -416,4 +416,37 @@ class ParserTest {
         // (310만 - 60만 고정 - 50만 저축) / 31 = 64,516 -> 10원 절삭 64,510
         assertEquals(64_510L, Stats.dailyVariableBudget(cfg, emptyList(), ym))
     }
+
+    /**
+     * 삼성 월렛(삼성페이)은 금액을 `₩7,100` 으로 보낸다. '원' 글자가 없다.
+     *
+     * 아래 문자열은 지어낸 것이 아니라 **사용자 실기기의 알림 기록 CSV 에서 그대로
+     * 옮긴 것**이다. 이 꼴을 못 읽어서 편의점·PC방·마트 결제 18건 약 24만원이 통째로
+     * 가계부에 안 들어가 있었다. 삼성페이는 허용 앱 목록에 처음부터 있었는데도
+     * 기록된 건이 한 건도 없었다.
+     */
+    @Test fun 원화기호로_온_금액을_읽는다() {
+        listOf(
+            Triple("₩7,100 결제 완료", "씨유 휘경행복점", 7_100L),
+            Triple("₩2,300 결제 완료", "씨유 휘경행복점", 2_300L),
+            Triple("₩1,000 결제 완료", "아크(ARK)PC방", 1_000L),
+            Triple("₩4,900 결제 완료", "서흥마트", 4_900L),
+            Triple("₩7,700 결제 완료", "맘스터치휘경점", 7_700L)
+        ).forEach { (title, text, want) ->
+            val out = Parser.parse(title, text)
+            assertTrue("$title / $text -> $out", out is Parser.Out.Expense)
+            assertEquals(title, want, (out as Parser.Out.Expense).amount)
+            // 가맹점은 본문에서 온다. 제목에는 금액과 '결제 완료' 밖에 없다.
+            assertTrue("$text -> ${out.merchant}", out.merchant.isNotBlank())
+        }
+    }
+
+    /** 기호가 붙어도 누적·적립 뒤에 오는 숫자는 결제액이 아니다. */
+    @Test fun 원화기호도_적립_뒤의_숫자는_안_집는다() {
+        // CU멤버십 알림. 점수는 금액이 아니므로 애초에 안 걸려야 한다.
+        assertTrue(Parser.parse("CU멤버십", "휘경행복점에서 142점 적립되었습니다.") is Parser.Out.None)
+        // 적립 뒤에 붙은 금액은 건너뛰고 그다음 결제액을 집는다.
+        val out = Parser.parse("결제 완료", "적립 ₩500 사용 ₩12,000 스타벅스")
+        assertEquals(12_000L, (out as Parser.Out.Expense).amount)
+    }
 }

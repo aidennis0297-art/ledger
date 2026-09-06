@@ -166,7 +166,10 @@ val DEFAULT_PAY_APPS: Set<String> = setOf(
     "com.samsung.android.spaylite",
     "com.nhnent.payapp",                  // 페이코
     "com.nhn.android.search",             // 네이버앱(네이버페이)
-    "com.naver.nozzle"
+    "com.naver.nozzle",
+    // 카드사 앱. 사용자 실기기 알림 기록에서 현대카드 해외승인 알림이
+    // '안 켠 앱의 알림' 으로 버려지고 있었다. 패키지명은 그 기록에서 그대로 옮겼다.
+    "com.hyundaicard.appcard"
 )
 
 @Serializable
