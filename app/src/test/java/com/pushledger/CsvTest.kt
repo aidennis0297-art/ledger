@@ -188,7 +188,9 @@ class CsvTest {
         val a = Store.parseCsv(Store.CSV_HEADER + "\n" + row).single()
         val b = Store.parseCsv(Store.CSV_HEADER + "\n" + row).single()
         assertEquals(a.dedup, b.dedup)
-        assertTrue(a.dedup.isNotBlank())
+        // 꼴까지 못 박는다. `안 비어 있다` 로만 두면 두 번 다 빈 문자열이어도,
+        // 두 번 다 같은 상수여도 통과한다. 열쇠는 줄 내용에서 나와야 한다.
+        assertEquals("csv|2026-08-21T14:32:00|12000|스타벅스", a.dedup)
         // id 는 매번 새로 붙는다. 열쇠는 dedup 이지 id 가 아니다.
         assertTrue(a.id != b.id)
     }

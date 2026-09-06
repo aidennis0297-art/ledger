@@ -432,18 +432,23 @@ class ParserTest {
      * 기록된 건이 한 건도 없었다.
      */
     @Test fun 원화기호로_온_금액을_읽는다() {
+        // (제목, 본문, 기대 금액, 기대 가맹점)
         listOf(
-            Triple("₩7,100 결제 완료", "씨유 휘경행복점", 7_100L),
-            Triple("₩2,300 결제 완료", "씨유 휘경행복점", 2_300L),
-            Triple("₩1,000 결제 완료", "아크(ARK)PC방", 1_000L),
-            Triple("₩4,900 결제 완료", "서흥마트", 4_900L),
-            Triple("₩7,700 결제 완료", "맘스터치휘경점", 7_700L)
-        ).forEach { (title, text, want) ->
+            listOf("₩7,100 결제 완료", "씨유 휘경행복점", 7_100L, "씨유 휘경행복점"),
+            listOf("₩2,300 결제 완료", "씨유 휘경행복점", 2_300L, "씨유 휘경행복점"),
+            listOf("₩1,000 결제 완료", "아크(ARK)PC방", 1_000L, "아크PC방"),
+            listOf("₩4,900 결제 완료", "서흥마트", 4_900L, "서흥마트"),
+            listOf("₩7,700 결제 완료", "맘스터치휘경점", 7_700L, "맘스터치휘경점")
+        ).forEach { row ->
+            val title = row[0] as String
+            val text = row[1] as String
             val out = Parser.parse(title, text)
             assertTrue("$title / $text -> $out", out is Parser.Out.Expense)
-            assertEquals(title, want, (out as Parser.Out.Expense).amount)
-            // 가맹점은 본문에서 온다. 제목에는 금액과 '결제 완료' 밖에 없다.
-            assertTrue("$text -> ${out.merchant}", out.merchant.isNotBlank())
+            out as Parser.Out.Expense
+            assertEquals(title, row[2] as Long, out.amount)
+            // 가맹점까지 못 박는다. `안 비어 있다` 로만 두면 `결제` 가 뽑혀도 통과한다 —
+            // 이 세션에서 실제로 문장·코드·날짜가 가게 이름 행세를 하던 버그류다.
+            assertEquals(text, row[3] as String, out.merchant)
         }
     }
 
