@@ -447,6 +447,103 @@ class ParserTest {
         }
     }
 
+    /**
+     * 정산해 달라는 **요청**은 내가 낼 돈이지 받을 돈이 아니고, 아직 움직이지도 않았다.
+     *
+     * 아래 문구는 사용자 실기기 알림 기록에서 그대로 옮긴 것이다. `정산금액` 이
+     * 정산 규칙(`정산금`)에 걸려 **수입 38,000원**으로 가계부에 들어가 있었고,
+     * 가맹점 자리에는 `확인해주세요` 가 앉아 있었다.
+     */
+    @Test fun 정산_요청은_기록하지_않는다() {
+        val out = Parser.parse(
+            "석원",
+            "정산 내용을 확인해주세요.   - 정산금액 : 38,000원 - 요청인원 : 4명 " +
+                "- 정산기한 : 2026. 09. 08.(화) 12:00까지  송금해주세요. " +
+                "* 정산기한이 지나기 전에 정산을 완료해주세요."
+        )
+        assertTrue("$out", out is Parser.Out.None)
+
+        // 카톡방에서 돈 보내 달라는 말도 마찬가지다. 실제로 보내면 송금 알림이 따로 온다.
+        assertTrue(Parser.parse("송민준", "꽃닭 9000원씩 보내주세요~") is Parser.Out.None)
+
+        // 정산금이 실제로 들어온 알림은 여전히 정산으로 잡혀야 한다.
+        assertTrue(
+            Parser.parse("카카오페이", "정산금 30,000원을 받았습니다") !is Parser.Out.None
+        )
+    }
+
+    /**
+     * 포인트가 없어진다는 안내는 지출이 아니다.
+     *
+     * 실기기 기록의 G마켓 스마일캐시 소멸 안내가 지출 2,200원으로 들어가 있었다.
+     * 본문에 "8월 28일까지 **사용** 가능" 이 있어 지출 규칙에 먼저 걸렸고,
+     * 광고 규칙(NOT_SPEND)은 지출 규칙이 없을 때만 보므로 못 막았다.
+     */
+    @Test fun 소멸_안내는_지출이_아니다() {
+        val out = Parser.parse(
+            "G마켓",
+            "[G마켓] 고객님, 보유하신 스마일캐시 2,200원이 소멸 예정입니다.  " +
+                "▶ 2026년 8월 28일(금)까지 사용 가능  이 메시지는 G마켓 회원 대상 " +
+                "전자금융거래약관 동의에 따라 지급된 캐시 소멸 안내이며, 오늘 기준 잔액 보유 " +
+                "고객에게 발송되는 메시지입니다."
+        )
+        assertTrue("$out", out is Parser.Out.None)
+    }
+
+    /**
+     * 편의점은 한글 표기로 온다. 규칙에 없어서 일곱 건이 기타/기타지출로 들어가 있었다.
+     * 항목별 예산을 쓰는 사람에게는 이게 곧 예산이 틀리는 것이다.
+     */
+    @Test fun 한글로_적힌_편의점도_식비로_본다() {
+        assertEquals(Cat.FOOD, Parser.guessCat("씨유 휘경행복점"))
+        assertEquals("마트/식료품", Parser.guessSubCat("씨유 휘경행복점", Cat.FOOD))
+        assertEquals(Cat.FOOD, Parser.guessCat("매머드익스프레스 시립대후문점"))
+        assertEquals("카페/음료", Parser.guessSubCat("매머드익스프레스 시립대후문점", Cat.FOOD))
+        // 알뜰폰은 여전히 고정지출이어야 한다. '세븐' 을 식비에 넣으면 여기가 깨진다.
+        assertEquals(Cat.HOUSING, Parser.guessCat("세븐모바일"))
+    }
+
+    /**
+     * 가맹점 자리에 문장이 앉으면 안 된다.
+     *
+     * 실기기 기록에서 한끼통살 주문 알림의 가맹점이 `완료되었습니다` 로 들어가 있었다.
+     * 본문에 쓸 만한 이름이 없으면 이런 토큰이 가장 길어서 뽑힌다. 문장 끝맺음으로
+     * 끝나는 토큰을 걸러 내면 본문이 비고, 그때 제목의 가게 이름으로 넘어간다.
+     */
+    @Test fun 가맹점_자리에_문장이_앉지_않는다() {
+        val out = Parser.parse(
+            "한끼통살",
+            "전성호님, 주문건 결제 완료되었습니다.  ▶결제 완료 일자 : 2026-08-29 " +
+                "▶결제금액 : 59,800원 ▶주문번호 : 20260829-0001395"
+        )
+        assertTrue("$out", out is Parser.Out.Expense)
+        out as Parser.Out.Expense
+        assertEquals(59_800L, out.amount)
+        assertFalse(out.merchant, out.merchant.endsWith("습니다"))
+        assertTrue(out.merchant, out.merchant.contains("한끼통살"))
+
+        // 알림 본문이 중간에서 잘려 마침표만 남는 일이 있다. 두 글자라 길이 검사를
+        // 통과해 `..` 가 가맹점이 됐었다.
+        val cut = Parser.parse("한끼통살", "주문건 결제 완료되었습니다.  ▶결제금액 : 59,800원 ..")
+        assertTrue("$cut", (cut as Parser.Out.Expense).merchant.contains("한끼통살"))
+
+        // 접수번호와 날짜 조각이 가맹점이 되면 안 된다. 길다는 이유로 뽑혔었다.
+        // 이 알림은 본문에 이름보다 설명이 많아 아직 제목까지 못 간다 — 적어도
+        // 코드나 날짜가 가게 이름 행세를 하지는 않는 데까지가 지금 보장하는 선이다.
+        val svc = Parser.parse(
+            "삼성전자서비스",
+            "■ 접수번호 : 202608261416WEB010 ■ 점검제품 : 시스템 에어컨 " +
+                "■ 완료일자 : 2026년 08월 28일 ■ 결제금액 : 166000원"
+        )
+        val name = (svc as Parser.Out.Expense).merchant
+        assertFalse(name, name.contains("WEB010"))
+        assertFalse(name, name.endsWith("년") || name.endsWith("월") || name.endsWith("일"))
+
+        // 한글 없는 영문 상호는 그대로 살아야 한다. 코드 거르기에 걸리면 안 된다.
+        val ali = Parser.parse("알림", "ALIEXPRESS.COM 7,485원 결제")
+        assertTrue("$ali", (ali as Parser.Out.Expense).merchant.contains("ALIEXPRESS"))
+    }
+
     /** 기호가 붙어도 누적·적립 뒤에 오는 숫자는 결제액이 아니다. */
     @Test fun 원화기호도_적립_뒤의_숫자는_안_집는다() {
         // CU멤버십 알림. 점수는 금액이 아니므로 애초에 안 걸려야 한다.
