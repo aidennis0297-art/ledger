@@ -170,6 +170,28 @@ object Store {
         val ym = YearMonth.from(LocalDateTime.parse(t.at, ts))
         val cur = readMonth(ym)
         if (isDuplicate(cur, t)) return false
+
+        // 아직 안 나간 고정지출 자리표가 있고 이번 건이 그 이름이면, 자리표를 이 건으로
+        // 갈아 끼운다. 사용자 실기기 가계부에 월세 580,000원이 두 줄로 남아 있었다 —
+        // 자동 자리표(by="fixed") 한 줄과 손으로 넣은 한 줄(by="manual"). 자리표는
+        // 소비 집계에서 빠지지만 손으로 넣은 줄은 안 빠지므로, 같은 월세가 고정지출
+        // 계획으로 한 번 소비로 한 번 빠져 하루 한도가 58만원만큼 잘못 줄었다.
+        // 불변식 3 이 등록 시점만 막고 있어서 등록 뒤에 손으로 넣는 길이 열려 있었다.
+        //
+        // **자리표가 있을 때만 한다.** 그달에 월세가 이미 실제로 나갔는데 같은 이름으로
+        // 또 결제가 일어나면 그건 고정지출이 아니라 그냥 소비다(hasRealFixed 와 같은 판단).
+        val plan = cur.firstOrNull { it.isFixedPlan && Merchant.same(it.merchant, t.merchant) }
+        if (plan != null && t.by != "fixed") {
+            val f = config.value.fixed.firstOrNull { Merchant.same(it.name, t.merchant) }
+            val row = t.copy(
+                by = "fixed",
+                category = f?.category ?: t.category,
+                subCategory = "고정지출"
+            )
+            writeMonth(ym, (cur - plan + row).sortedByDescending { it.at })
+            return true
+        }
+
         writeMonth(ym, (cur + t).sortedByDescending { it.at })
         return true
     }
@@ -183,17 +205,34 @@ object Store {
         if (t.by != "rule" && t.by != "ai") return false
         val tAt = LocalDateTime.parse(t.at, ts)
         return cur.any {
-            it.amount == t.amount &&
-                !it.canceled &&
-                (it.by == "rule" || it.by == "ai") &&
-                Math.abs(
-                    java.time.Duration.between(LocalDateTime.parse(it.at, ts), tAt).seconds
-                ) <= DUP_WINDOW_SEC
+            if (it.amount != t.amount || it.canceled) return@any false
+            if (it.by != "rule" && it.by != "ai") return@any false
+            val gap = Math.abs(
+                java.time.Duration.between(LocalDateTime.parse(it.at, ts), tAt).seconds
+            )
+            gap <= DUP_WINDOW_SEC ||
+                (gap <= DUP_WIDE_SEC && Merchant.same(it.merchant, t.merchant))
         }
     }
 
     /** 같은 결제로 볼 시간 폭. 알림이 지워졌다 다시 뜨는 간격을 덮는다. */
     const val DUP_WINDOW_SEC = 10L
+
+    /**
+     * 가맹점까지 같을 때만 쓰는 넓은 시간 폭.
+     *
+     * 삼성페이와 토스가 **같은 결제를 각자 알린다.** 대개 2초 안에 붙어 오지만,
+     * 사용자 실기기 기록에서 58초·59초·85초 벌어진 건이 셋 있었다. 10초 창만으로는
+     * 그 셋이 가계부에 두 줄로 들어온다.
+     *
+     * 그렇다고 10초 창 자체를 늘리면 안 된다. 그 창은 **앱과 가맹점을 일부러 안 보는**
+     * 창이라(불변식 2), 넓히면 같은 금액을 잇달아 쓴 진짜 결제까지 뭉친다 — 이 사용자
+     * 기록에도 PC방 1,000원이 여러 번 있다. 그래서 넓은 창에서는 **가맹점이 같은지를
+     * 함께 본다.** 두 앱이 가맹점을 다르게 적으면 안 묶일 뿐이라 지금과 같아진다.
+     * 틀릴 거면 이쪽으로 틀려야 한다 — 뭉쳐서 없어진 결제는 눈치채기 어렵고,
+     * 두 줄로 들어온 결제는 내역에서 바로 보인다.
+     */
+    const val DUP_WIDE_SEC = 180L
 
     fun updateTxn(t: Txn) = synchronized(lock) {
         val ym = YearMonth.from(LocalDateTime.parse(t.at, ts))

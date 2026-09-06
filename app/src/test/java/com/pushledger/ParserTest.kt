@@ -103,8 +103,14 @@ class ParserTest {
         assertTrue(
             Store.isDuplicate(listOf(first), txn("2026-08-21T14:32:04", "com.shinhan.card", "스타벅스강남R점"))
         )
-        // 11초 뒤는 다른 결제로 본다.
+        // 11초 뒤에 가맹점까지 다르면 다른 결제로 본다.
         assertFalse(
+            Store.isDuplicate(listOf(first), txn("2026-08-21T14:32:11", "com.shinhan.card", "이디야"))
+        )
+        // 가맹점이 같으면 11초를 넘겨도 같은 결제다. 예전에는 여기서 갈랐는데,
+        // 삼성페이와 토스가 같은 결제를 58~85초 벌려 알리는 것이 실기기 기록에서
+        // 확인돼 넓은 창을 뒀다. 자세한 이유는 Store.DUP_WIDE_SEC 에 적었다.
+        assertTrue(
             Store.isDuplicate(listOf(first), txn("2026-08-21T14:32:11", "com.shinhan.card", "스타벅스강남R점"))
         )
         // 손으로 넣은 건은 사용자가 뜻을 갖고 넣은 것이라 막지 않는다.
