@@ -254,10 +254,17 @@ $CATS
 
 집계 범위: 최근 ${kind.months}개월
 - 총 지출: ${totalSpent}원 (${active.size}건)
+  ※ **이 값에는 고정지출이 들어 있지 않다.** 월세·구독료처럼 이미 임자가 있는 돈은
+    따로 빼 두고 세므로, `총 지출 ÷ 월 총 예산` 으로 여유를 판단하면 실제보다
+    한참 여유 있어 보인다. 아래 '쓸 수 있는 변동 예산' 과 견줄 것.
 - 월 총 예산: ${cfg.monthlyBudget}원
 - 고정지출 계획: ${Stats.fixedTotal(cfg)}원
 - 저축 목표: ${Stats.investGoal(cfg)}원
-- 추가 수입: ${Stats.incomeTotal(txns)}원
+- **쓸 수 있는 변동 예산: ${
+        (cfg.monthlyBudget - Stats.fixedTotal(cfg) - Stats.investGoal(cfg)).coerceAtLeast(0L)
+    }원** (월 총 예산 − 고정지출 − 저축)${
+        Stats.incomeTotal(txns).let { if (it > 0L) "\n- 추가 수입: ${it}원" else "" }
+    }
 - 하루 가용 예산: ${daily.dailyLimit}원 (오늘 지출 ${daily.todaySpent}원)
 - 카테고리별 지출: ${catSummary.ifBlank { "없음" }}
 - 항목별 배정 예산: ${allocated.ifBlank { "미배정" }}
