@@ -488,6 +488,13 @@ private fun RawCard(raw: Raw) {
                 }) {
                     Text("무시 취소", fontSize = T.Caption, color = Accent)
                 }
+                // 입금 알림은 규칙이 여기로 보낸다(수입은 기록하지 않는다). 그런데 이 줄에는
+                // '직접 입력' 이 없어서, 정말 넣고 싶은 사람은 무시 취소 → 미처리 → 직접 입력
+                // 세 걸음을 밟아야 했다. 그리고 'AI로 읽기' 는 AI 가 다시 수입이라고 답해
+                // 곧장 무시로 돌아오는 죽은 버튼이었다. 여기에 한 걸음짜리 길을 둔다.
+                TextButton(onClick = { manual = true }) {
+                    Text("직접 입력", fontSize = T.Caption, color = Accent)
+                }
                 Spacer(Modifier.width(4.dp))
                 Button(
                     onClick = {

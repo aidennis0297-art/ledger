@@ -160,11 +160,13 @@ class NotifListener : NotificationListenerService() {
             // 그 거래를 손으로 지웠다. 용돈·정산금·계좌 이체가 전부 같은 "입금" 문구로
             // 오기 때문에 문구로는 가를 수 없고, 임계값을 두면 그 숫자가 새 오차가 된다.
             //
-            // 버리지는 않는다. 알림함에 사유와 함께 남으므로, 정말 수입으로 잡고 싶으면
-            // 그 줄에서 직접 추가로 넣을 수 있다.
+            // 버리지는 않는다. 알림함 '무시됨' 칸에 사유와 함께 남고, 그 줄에 '직접 입력'
+            // 버튼이 있다. 처음에는 그 버튼이 없어서 무시 취소 → 미처리 → 직접 입력
+            // 세 걸음을 밟아야 했고, 'AI로 읽기' 는 AI 가 다시 수입이라고 답해 곧장
+            // 무시로 돌아오는 죽은 버튼이었다.
             is Parser.Out.Income -> {
                 val sender = out.sender.ifBlank { "입금" }
-                log(Raw.IGNORED, "수입은 기록하지 않습니다 — $sender ${out.amount}원")
+                log(Raw.IGNORED, "수입은 기록하지 않습니다 — $sender ${out.amount}원 · 넣으려면 직접 입력")
             }
 
             is Parser.Out.Settle -> {
