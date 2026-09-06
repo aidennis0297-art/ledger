@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
-import java.time.LocalDate
 import java.time.YearMonth
 
 /**
@@ -187,7 +186,7 @@ class DailyWidgetProvider : AppWidgetProvider() {
                 views.setTextColor(R.id.widget_month_text, if (remain < 0) OVER else SUB)
 
                 // 예산을 넘긴 뒤가 아니라 넘기기 전에 알려 준다. 오늘까지의 속도를 말일까지 잇는다.
-                val pace = Stats.total(monthTxns) / LocalDate.now().dayOfMonth * ym.lengthOfMonth()
+                val pace = Stats.monthPace(cfg, monthTxns)
                 views.setTextViewText(
                     R.id.widget_forecast_text, "이대로면 월 " + StatusNotifier.monthShort(pace)
                 )

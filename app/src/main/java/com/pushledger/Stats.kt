@@ -274,6 +274,23 @@ object Stats {
     fun fixedTotal(cfg: Config): Long = cfg.fixed.sumOf { it.amount }
 
     /**
+     * 이대로 쓰면 말일에 얼마가 되는지. 예산을 넘긴 뒤가 아니라 넘기기 전에 알리는 값이다.
+     *
+     * **변동 소비만 늘리고 고정지출은 계획 금액을 그대로 더한다.** 월세는 달에 한 번
+     * 나가는 돈이라 하루 평균으로 펴서 말일까지 늘리면 몇 배로 부푼다. 반대로 고정지출을
+     * 아예 빼고 계산하면 [Config.monthlyBudget] 과 견줄 수 없다 — 월 예산에는 월세 몫이
+     * 들어 있는데 예상에는 없어서, 실제로는 넘길 판인데도 한참 여유 있어 보인다.
+     * 위젯의 '이대로면 월' 줄이 처음에 그렇게 틀렸다.
+     *
+     * 홈에도 같은 줄을 붙일 때는 이 함수를 쓸 것. 두 곳이 다른 숫자를 말하면 안 된다.
+     */
+    fun monthPace(
+        cfg: Config,
+        month: List<Txn>,
+        today: java.time.LocalDate = java.time.LocalDate.now()
+    ): Long = total(month) / today.dayOfMonth * today.lengthOfMonth() + fixedTotal(cfg)
+
+    /**
      * 항목별로 배정된 총 예산 합계.
      *
      * 고정지출[Cat.HOUSING]은 여기서 뺀다. 고정지출 예산은 [fixedTotal] 로 이미 한 번

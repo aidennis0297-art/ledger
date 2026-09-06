@@ -149,4 +149,29 @@ class StatsTest {
         // 둘 다 소비 집계에서는 빠진다. 고정지출은 변동 예산에서 이미 뺀 돈이다.
         assertEquals(0L, Stats.total(listOf(plan, real)))
     }
+
+    /**
+     * 월말 예상은 월 예산과 같은 잣대로 재야 한다.
+     *
+     * 변동 소비만 늘려 놓고 월 예산 전체와 견주면 고정지출 몫만큼 늘 여유 있어 보인다.
+     * 위젯의 '이대로면 월' 줄이 처음에 그렇게 틀려서, 넘길 판인데도 회색으로 떴다.
+     */
+    @Test fun 월말_예상은_고정지출을_계획_금액_그대로_더한다() {
+        val cfg = Config(
+            monthlyBudget = 1_000_000,
+            fixed = listOf(Fixed(id = "f1", name = "월세", amount = 500_000, day = 1))
+        )
+        val d10 = java.time.LocalDate.of(2026, 8, 10)   // 31일 달의 열흘째
+
+        // 열흘 동안 변동 소비 10만. 이 속도면 말일에 31만이고, 월세 50만을 더해 81만이다.
+        val spent = (1..10).map { txn("2026-08-%02dT12:00:00".format(it), amount = 10_000) }
+        assertEquals(310_000L + 500_000L, Stats.monthPace(cfg, spent, d10))
+
+        // 고정지출은 늘리지 않는다. 월세가 이미 나갔어도(by="fixed") 예상은 그대로다.
+        val withReal = spent + txn("2026-08-01T09:00:00", amount = 500_000, by = "fixed")
+        assertEquals(310_000L + 500_000L, Stats.monthPace(cfg, withReal, d10))
+
+        // 고정지출을 빼고 재면 81만이 31만으로 보여, 100만 예산을 넘길 판인데도 여유로 읽힌다.
+        assertTrue(Stats.monthPace(cfg, spent + spent, d10) > cfg.monthlyBudget)
+    }
 }
