@@ -174,4 +174,26 @@ class StatsTest {
         // 고정지출을 빼고 재면 81만이 31만으로 보여, 100만 예산을 넘길 판인데도 여유로 읽힌다.
         assertTrue(Stats.monthPace(cfg, spent + spent, d10) > cfg.monthlyBudget)
     }
+
+    /**
+     * 튀는 결제. 표본이 적을 때 아무거나 튄다고 하면 그 표시를 아무도 안 믿게 된다.
+     */
+    @Test fun 튀는_결제는_표본이_모였을_때만_고른다() {
+        fun t(n: Int, amount: Long) = txn("2026-08-%02dT12:00:00".format(n), amount = amount)
+
+        // 네 건짜리 달. 하나가 아무리 커도 평균과 편차에 뜻이 없어 고르지 않는다.
+        assertTrue(Stats.outliers(listOf(t(1, 1000), t(2, 1000), t(3, 1000), t(4, 900_000))).isEmpty())
+
+        // 만원짜리 여덟 건에 30만원 하나. 이건 습관이 아니라 사건이다.
+        val many = (1..8).map { t(it, 10_000) } + t(9, 300_000)
+        assertEquals(listOf(300_000L), Stats.outliers(many).map { it.amount })
+
+        // 전부 같은 금액이면 편차가 0 이라 튀는 건이 없다. 0 으로 나누지도 않는다.
+        assertTrue(Stats.outliers((1..8).map { t(it, 10_000) }).isEmpty())
+
+        // 고정지출 실행건은 소비가 아니므로 애초에 후보가 아니다.
+        val withFixed = (1..8).map { t(it, 10_000) } +
+            txn("2026-08-09T09:00:00", amount = 900_000, by = "fixed")
+        assertTrue(Stats.outliers(withFixed).isEmpty())
+    }
 }

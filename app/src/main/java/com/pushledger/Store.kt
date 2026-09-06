@@ -368,21 +368,156 @@ object Store {
         val now = YearMonth.now()
         val rows = (0 until months).flatMap { readMonth(now.minusMonths(it.toLong())) }
             .sortedByDescending { it.at }
-        val sb = StringBuilder("날짜,시각,가맹점,금액,분류,세부분류,결제수단,취소,출처,메모\n")
-        rows.forEach { t ->
-            fun q(v: String) = "\"" + v.replace("\"", "\"\"") + "\""
-            sb.append(t.at.substring(0, 10)).append(',')
-                .append(t.at.substring(11)).append(',')
-                .append(q(t.merchant)).append(',')
-                .append(t.amount).append(',')
-                .append(q(t.cat.label)).append(',')
-                .append(q(t.subCategory)).append(',')
-                .append(q(t.method)).append(',')
-                .append(if (t.canceled) "취소" else "").append(',')
-                .append(q(t.by)).append(',')
-                .append(q(t.memo)).append('\n')
-        }
+        val sb = StringBuilder(CSV_HEADER).append('\n')
+        rows.forEach { sb.append(csvRow(it)).append('\n') }
         return sb.toString()
+    }
+
+    /** 내보내기 CSV 의 열 이름. 되읽기([parseCsv])가 이 이름으로 자리를 찾는다. */
+    const val CSV_HEADER = "날짜,시각,가맹점,금액,분류,세부분류,결제수단,취소,출처,메모"
+
+    /**
+     * 거래 한 줄. 내보내기와 되읽기가 이 한 함수를 사이에 두고 마주 본다.
+     * 열을 바꿀 때 여기만 고치면 왕복 테스트가 어긋난 자리를 잡아 준다.
+     */
+    fun csvRow(t: Txn): String {
+        fun q(v: String) = "\"" + v.replace("\"", "\"\"") + "\""
+        return t.at.substring(0, 10) + "," + t.at.substring(11) + "," +
+            q(t.merchant) + "," + t.amount + "," + q(t.cat.label) + "," +
+            q(t.subCategory) + "," + q(t.method) + "," +
+            (if (t.canceled) "취소" else "") + "," + q(t.by) + "," + q(t.memo)
+    }
+
+    /**
+     * CSV 한 줄을 칸으로 가른다.
+     *
+     * 따옴표 안의 쉼표를 살려야 한다. 가맹점 이름에 쉼표가 흔하고(`이마트24, 강남점`),
+     * 그냥 `split(",")` 로 자르면 그 줄부터 열이 통째로 한 칸씩 밀린다.
+     * 따옴표 자체는 두 번 겹쳐 적혀 있으므로([csvRow]) 겹친 것은 한 개로 되돌린다.
+     */
+    fun csvCells(line: String): List<String> {
+        val out = ArrayList<String>()
+        val sb = StringBuilder()
+        var quoted = false
+        var i = 0
+        while (i < line.length) {
+            val c = line[i]
+            when {
+                c == '"' && quoted && i + 1 < line.length && line[i + 1] == '"' -> {
+                    sb.append('"'); i++
+                }
+                c == '"' -> quoted = !quoted
+                c == ',' && !quoted -> { out.add(sb.toString()); sb.setLength(0) }
+                else -> sb.append(c)
+            }
+            i++
+        }
+        out.add(sb.toString())
+        return out
+    }
+
+    /**
+     * 내보낸 CSV 를 거래로 되읽는다. 파일을 건드리지 않으므로 따로 테스트할 수 있다.
+     *
+     * **자리는 순서가 아니라 열 이름으로 찾는다.** 사용자가 표 계산기에서 열 하나만
+     * 옮겨도 순서로 찾는 코드는 금액 자리에서 가맹점을 읽고, 그 결과가 조용히
+     * 가계부에 들어간다. 필요한 열이 없으면 아예 읽지 않고 예외를 던진다.
+     *
+     * 읽을 수 없는 줄은 버리고 나머지를 살린다. 한 줄이 깨졌다고 전부 포기하면
+     * 백업으로서 쓸모가 없다 — 되살릴 수 있는 만큼은 되살리는 편이 낫다.
+     */
+    fun parseCsv(text: String): List<Txn> {
+        // 엑셀이 한글을 안 깨뜨리게 붙여 둔 BOM. 안 떼면 첫 열 이름이 "\uFEFF날짜" 가 된다.
+        val lines = text.removePrefix("\uFEFF").lines().filter { it.isNotBlank() }
+        require(lines.isNotEmpty()) { "빈 파일입니다" }
+        val head = csvCells(lines[0]).map { it.trim() }
+        fun col(name: String) = head.indexOf(name)
+        val iDate = col("날짜"); val iTime = col("시각")
+        val iMerchant = col("가맹점"); val iAmount = col("금액")
+        require(iDate >= 0 && iTime >= 0 && iMerchant >= 0 && iAmount >= 0) {
+            "이 앱이 내보낸 가계부 CSV 가 아닙니다"
+        }
+        val iCat = col("분류"); val iSub = col("세부분류"); val iMethod = col("결제수단")
+        val iCancel = col("취소"); val iBy = col("출처"); val iMemo = col("메모")
+
+        return lines.drop(1).mapNotNull { line ->
+            runCatching {
+                val c = csvCells(line)
+                fun at(i: Int) = if (i in 0..c.lastIndex) c[i].trim() else ""
+                // 표 계산기가 "14:32:00" 을 "14:32" 로 줄여 저장하는 일이 있다.
+                val time = at(iTime).let { if (it.length == 5) "$it:00" else it }
+                val stamp = at(iDate) + "T" + time
+                LocalDateTime.parse(stamp, ts)      // 형식이 틀리면 여기서 걸러진다
+                val amount = at(iAmount).replace(",", "").toLong()
+                Txn(
+                    id = newId(),
+                    amount = amount,
+                    merchant = at(iMerchant),
+                    category = Cat.of(at(iCat)).name,
+                    subCategory = at(iSub),
+                    at = stamp,
+                    method = at(iMethod),
+                    canceled = at(iCancel).isNotBlank(),
+                    memo = at(iMemo),
+                    by = at(iBy).ifBlank { "manual" },
+                    // 같은 파일을 두 번 넣어도 늘지 않게 줄 내용에서 열쇠를 만든다.
+                    dedup = "csv|$stamp|$amount|${at(iMerchant)}"
+                )
+            }.getOrNull()
+        }
+    }
+
+    /**
+     * 내보낸 CSV 로 가계부를 되살린다.
+     *
+     * **덮어쓰지 않는다.** 이미 있는 건은 건너뛰고 없는 것만 넣는다. 복원은 보통 앱을
+     * 지웠다 다시 깐 뒤에 하지만, 쓰던 폰에서 잘못 눌렀을 때 그날까지 쓴 것이 통째로
+     * 날아가면 백업이 사고의 원인이 된다. 예시 데이터가 그렇게 한 번 사고를 냈다(4-10).
+     *
+     * [addTxn] 을 지나지 않는 유일한 삽입 경로다(불변식 2의 예외). 두 가지 이유다.
+     *  1. 줄마다 파일을 쓰면 24개월치 복원이 파일 쓰기 수천 번이 되고, 그때마다
+     *     상태창·위젯 갱신이 딸려 간다. 달별로 모아 한 번씩 쓴다.
+     *  2. `addTxn` 의 10초 규칙은 같은 금액을 연달아 쓴 건을 한 건으로 뭉친다. 복원에서
+     *     그러면 **되살리려던 기록이 되살리는 도중에 사라진다.** 여기서는 날짜·시각·
+     *     금액·가맹점이 통째로 같을 때만 이미 있는 것으로 본다.
+     */
+    fun importCsv(text: String): ImportResult {
+        val rows = runCatching { parseCsv(text) }
+            .getOrElse { return ImportResult(error = it.message ?: "읽을 수 없는 파일입니다") }
+        if (rows.isEmpty()) return ImportResult(error = "되살릴 거래가 한 건도 없습니다")
+
+        var added = 0
+        var skipped = 0
+        synchronized(lock) {
+            rows.groupBy { YearMonth.from(LocalDateTime.parse(it.at, ts)) }.forEach { (ym, list) ->
+                val cur = readMonth(ym)
+                // 파일 안에서 같은 줄이 두 번 나와도 한 번만 들어간다.
+                val seen = cur.mapTo(HashSet()) { rowKey(it) }
+                val fresh = list.filter { seen.add(rowKey(it)) }
+                skipped += list.size - fresh.size
+                if (fresh.isNotEmpty()) {
+                    writeMonth(ym, (cur + fresh).sortedByDescending { it.at })
+                    added += fresh.size
+                }
+            }
+        }
+        return ImportResult(added, skipped)
+    }
+
+    /** 복원에서 '같은 건' 을 가르는 열쇠. 네 값이 통째로 같아야 같은 건이다. */
+    private fun rowKey(t: Txn) = t.at + "|" + t.amount + "|" + t.merchant
+
+    /** 복원 결과. 화면은 [message] 한 줄만 보여 주면 된다. */
+    data class ImportResult(
+        val added: Int = 0,
+        val skipped: Int = 0,
+        val error: String? = null
+    ) {
+        val message: String
+            get() = error
+                ?: if (added == 0) "이미 다 들어 있는 내역입니다 ($skipped 건)"
+                else "$added 건을 되살렸습니다" +
+                    (if (skipped > 0) " · $skipped 건은 이미 있었습니다" else "")
     }
 
     /**

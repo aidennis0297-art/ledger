@@ -176,19 +176,6 @@ object LocalCoach {
             .sortedByDescending { it.second }
             .take(3)
 
-    /**
-     * 튀는 결제. 평균에서 표준편차 두 배를 넘긴 건.
-     * 총액이 늘어난 이유가 습관인지 사건 하나인지 여기서 갈린다.
-     */
-    private fun outliers(list: List<Txn>): List<Txn> {
-        val a = Stats.active(list)
-        if (a.size < 5) return emptyList()
-        val mean = a.sumOf { it.amount }.toDouble() / a.size
-        val sd = kotlin.math.sqrt(a.sumOf { (it.amount - mean) * (it.amount - mean) } / a.size)
-        if (sd <= 0.0) return emptyList()
-        return a.filter { it.amount > mean + 2 * sd }.sortedByDescending { it.amount }.take(3)
-    }
-
     /** 상위 세 곳이 전체에서 차지하는 비중. 높을수록 줄일 자리가 뚜렷하다. */
     private fun concentration(list: List<Txn>): Int {
         val total = Stats.total(list)
@@ -239,7 +226,7 @@ object LocalCoach {
         val (lateN, lateSum) = lateNight(txns)
         val (weekend, weekday) = weekendSplit(txns)
         val subs = subscriptions(txns)
-        val odd = outliers(txns)
+        val odd = Stats.outliers(txns)
         val conc = concentration(txns)
 
         // 지난달과 견준다. 같은 금액도 늘어난 것인지 줄어든 것인지에 따라 뜻이 다르다.

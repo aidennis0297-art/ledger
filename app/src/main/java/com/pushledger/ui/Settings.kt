@@ -1,6 +1,8 @@
 package com.pushledger.ui
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -157,8 +159,21 @@ fun SettingsScreen() {
             }
         }
 
-        // 데이터 내보내기 / 알림 보관 기간
+        // 데이터 내보내기 / 되살리기 / 알림 보관 기간
         item {
+            var restored by remember { mutableStateOf("") }
+            // 내보낸 CSV 를 고르게 한다. mime 은 "*/*" 로 연다 — 드라이브·카톡·파일앱이
+            // 같은 csv 를 text/csv, text/comma-separated-values, application/octet-stream
+            // 으로 제각각 알려 줘서, 좁게 걸면 정작 자기가 내보낸 파일이 회색으로 뜬다.
+            val pickCsv = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) restored = runCatching {
+                    val text = ctx.contentResolver.openInputStream(uri)
+                        ?.bufferedReader()?.use { it.readText() }.orEmpty()
+                    Store.importCsv(text).message
+                }.getOrElse { "파일을 읽지 못했습니다: ${it.message}" }
+            }
             Panel(
                 "데이터",
                 Sym.DOC
@@ -223,6 +238,27 @@ fun SettingsScreen() {
                         "왜 안 잡혔는지 확인하거나 규칙을 고칠 근거로 씁니다.",
                     fontSize = T.Caption, color = Sub
                 )
+                Spacer(Modifier.height(12.dp))
+                Text("가계부 되살리기", fontSize = T.Body, color = Ink)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "내보낸 가계부 CSV 를 다시 읽어 넣습니다. 덮어쓰지 않고 지금 없는 건만 " +
+                        "채우므로, 쓰던 폰에서 눌러도 오늘까지 쓴 것은 그대로 남습니다.",
+                    fontSize = T.Caption, color = Sub
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { pickCsv.launch(arrayOf("*/*")) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Ink)
+                ) { Text("CSV 에서 되살리기", fontSize = T.Body) }
+                if (restored.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        restored, fontSize = T.Caption,
+                        color = if (restored.contains("되살렸")) Good else Warn
+                    )
+                }
+
                 Spacer(Modifier.height(12.dp))
                 Text("알림 보관 기간", fontSize = T.Body, color = Ink)
                 Spacer(Modifier.height(6.dp))

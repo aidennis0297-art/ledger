@@ -124,6 +124,17 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
                             )
                         }
                     }
+                    // 예산을 넘긴 뒤가 아니라 넘기기 전에 알려 준다. 위젯의 '이대로면 월'
+                    // 줄과 같은 함수를 쓴다 — 두 곳이 다른 숫자를 말하면 안 된다.
+                    val pace = Stats.monthPace(cfg, month, today)
+                    val gap = pace - cfg.monthlyBudget
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        if (gap > 0) "이대로면 월 ${wonShort(pace)}원 · ${wonShort(gap)}원 넘김"
+                        else "이대로면 월 ${wonShort(pace)}원 · ${wonShort(-gap)}원 남김",
+                        fontSize = T.Caption,
+                        color = if (gap > 0) Warn else Sub
+                    )
                 } else {
                     Text(won(spent), fontSize = T.Display, fontWeight = FontWeight.Bold, color = Ink)
                     Spacer(Modifier.height(4.dp))
@@ -168,6 +179,32 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
                         Text("예산 초과", fontSize = T.Body, fontWeight = FontWeight.Bold, color = Warn)
                         Text(
                             daily.overBudgetCats.joinToString(" · ") { "${it.first.label} +${wonShort(it.second)}" },
+                            fontSize = T.Body, color = Ink
+                        )
+                    }
+                }
+            }
+        }
+
+        // 총액이 늘어난 이유가 습관인지 사건 하나인지 갈라 준다. 평소와 다른 큰 결제가
+        // 없으면 이 줄 자체가 안 나온다 — 늘 떠 있는 표시는 곧 안 읽히는 표시가 된다.
+        val odd = Stats.outliers(month)
+        if (odd.isNotEmpty()) {
+            item {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 5.dp)
+                        .clip(RoundedCornerShape(10.dp)).background(Card)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(Modifier.size(6.dp).background(Accent))
+                    Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                        Text(
+                            "평소보다 큰 결제", fontSize = T.Body,
+                            fontWeight = FontWeight.Bold, color = Accent
+                        )
+                        Text(
+                            odd.joinToString(" · ") { "${it.merchant} ${wonShort(it.amount)}원" },
                             fontSize = T.Body, color = Ink
                         )
                     }

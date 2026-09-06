@@ -291,6 +291,26 @@ object Stats {
     ): Long = total(month) / today.dayOfMonth * today.lengthOfMonth() + fixedTotal(cfg)
 
     /**
+     * 튀는 결제. 평균에서 표준편차 두 배를 넘긴 건.
+     *
+     * 총액이 늘어난 이유가 습관인지 사건 하나인지 여기서 갈린다. 습관이면 줄일 데를
+     * 찾아야 하고, 사건 하나면 이번 달만 그런 것이라 손댈 것이 없다.
+     *
+     * 표본이 다섯 건도 안 되면 평균과 편차가 아무 뜻이 없다. 그때는 빈 목록을 준다 —
+     * 두 건짜리 달에서 큰 쪽이 늘 '튀는 결제' 로 뜨면 그 표시를 아무도 안 믿게 된다.
+     *
+     * 리포트(`Coach`)와 홈 화면이 같이 쓴다. 두 곳이 다른 건을 튄다고 하면 안 된다.
+     */
+    fun outliers(list: List<Txn>, take: Int = 3): List<Txn> {
+        val a = active(list)
+        if (a.size < 5) return emptyList()
+        val mean = a.sumOf { it.amount }.toDouble() / a.size
+        val sd = kotlin.math.sqrt(a.sumOf { (it.amount - mean) * (it.amount - mean) } / a.size)
+        if (sd <= 0.0) return emptyList()
+        return a.filter { it.amount > mean + 2 * sd }.sortedByDescending { it.amount }.take(take)
+    }
+
+    /**
      * 항목별로 배정된 총 예산 합계.
      *
      * 고정지출[Cat.HOUSING]은 여기서 뺀다. 고정지출 예산은 [fixedTotal] 로 이미 한 번
