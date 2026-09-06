@@ -475,6 +475,26 @@ ANR 이다. **오래된 결제 원문은 화면이 아니라 `알림 기록 CSV`
 
 ---
 
+### 쓰기 자리를 세는 법 — 파일을 읽는 것보다 정확하다
+
+이 세션 후반의 버그는 전부 **파일을 훑어서가 아니라 API 를 세어서** 나왔다.
+1,700줄을 읽는 대신 `grep` 한 줄로 자리를 전부 세고 그중 위험한 것만 본다.
+
+```bash
+# 거래를 쓰는 자리 (22곳) — 여기서 다른 달 이사 중 거래가 사라지던 것을 찾았다
+grep -rn "Store\.\(addTxn\|updateTxn\|deleteTxn\|restoreTxn\|writeMonth\|importCsv\|applyFix\|undoFix\|applySettlement\|applyCancel\|replaceAutoFixed\|addFixed\)" app/src/main
+# 설정을 쓰는 자리 (28곳)
+grep -rn "saveConfig" app/src/main
+# 파일을 진짜 지우는 자리 (3곳) — 되돌릴 수 없는 유일한 연산
+grep -rn "\.delete()\|deleteRecursively" app/src/main
+# 거래에 수입이 붙을 수 있는 자리 (불변식 14)
+grep -rn "Cat.INCOME" app/src/main
+```
+
+이 넷을 돌려 보면 `Charts.kt`·`StatsScreen.kt`·`AiScreen.kt`·`MainActivity.kt` 는
+거래를 아예 안 건드린다는 것도 같이 보인다. **"안 열어 본 파일이 있다" 는 걱정은
+파일 목록이 아니라 이 목록으로 푼다.**
+
 ## 6. 남은 작업
 
 ### 근거가 있고 값이 확실한 것

@@ -848,6 +848,18 @@ object Store {
         else runCatching { json.decodeFromString<Config>(f.readText()) }.getOrDefault(Config())
     }
 
+    /**
+     * ponytail: 화면이 들고 있던 사본을 그대로 덮어쓴다. 겹쳐 쓰기를 막고 싶으면
+     * `updateConfig { it.copy(...) }` 를 만들어 잠금 안에서 현재 값을 읽게 바꾼다.
+     *
+     * 지금 그대로 두는 이유는 겹치는 창이 밀리초라서다. 배경에서 도는 리포트 생성과
+     * AI 분석이 `reports`·`catMemory`·`lastAiRun` 을 쓰는데(불변식 11 이 화면을 떠나도
+     * 돌라고 요구한다), 화면은 `collectAsState` 로 그 값을 받아 곧바로 다시 구성한다.
+     * 낡은 사본으로 덮으려면 배경 쓰기와 재구성 사이 한 프레임 안에 토글을 눌러야 한다.
+     *
+     * **부르는 자리를 스물여덟 곳 고치는 값은 아직 없다.** 다만 리포트가 사라졌다는
+     * 제보가 오면 여기를 먼저 볼 것 — 그때는 `updateConfig` 로 옮긴다.
+     */
     fun saveConfig(c: Config) = synchronized(lock) {
         writeAtomic(configFile(), json.encodeToString(c))
         config.value = c
