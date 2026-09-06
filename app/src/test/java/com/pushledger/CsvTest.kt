@@ -1,6 +1,7 @@
 package com.pushledger
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -120,6 +121,65 @@ class CsvTest {
         ).forEach { bad ->
             assertTrue(runCatching { Store.parseCsv(bad) }.isFailure)
         }
+    }
+
+    /**
+     * 메모에 줄바꿈이 있어도 거래가 사라지면 안 된다.
+     *
+     * 되읽기는 줄 단위로 자르므로, 필드 안의 줄바꿈을 그대로 내보내면 한 거래가 두
+     * 줄로 쪼개져 양쪽 다 파싱에 실패하고 조용히 버려진다. 되살리려던 바로 그
+     * 데이터가 백업을 지나며 없어지는 꼴이라 이 검사가 가장 중요하다.
+     */
+    @Test fun 줄바꿈이_든_메모도_거래를_잃지_않는다() {
+        val src = txn("2026-08-21T14:32:00", memo = "회의 후\n영수증 있음\r\n분할 결제")
+        val csv = Store.CSV_HEADER + "\n" + Store.csvRow(src)
+        // 내보낸 결과가 한 줄이어야 한다. 두 줄이면 그 자리에서 이미 깨진 것이다.
+        assertEquals(2, csv.lines().size)
+        val back = Store.parseCsv(csv).single()
+        assertEquals(src.amount, back.amount)
+        assertEquals("회의 후 영수증 있음  분할 결제", back.memo)
+    }
+
+    /** 가맹점 이름에 줄바꿈이 섞여 와도 마찬가지다. */
+    @Test fun 줄바꿈이_든_가맹점도_거래를_잃지_않는다() {
+        val src = txn("2026-08-21T14:32:00", merchant = "카페\n온")
+        val csv = Store.CSV_HEADER + "\n" + Store.csvRow(src)
+        assertEquals(2, csv.lines().size)
+        assertEquals("카페 온", Store.parseCsv(csv).single().merchant)
+    }
+
+    /**
+     * 아직 안 나간 고정지출 자리표는 자리표인 채로 돌아와야 한다.
+     *
+     * 자리표가 '실제로 나간 건' 으로 되살아나면 `hasRealFixed` 가 이미 나갔다고 답하고,
+     * 나중에 오는 진짜 출금 알림이 고정지출로 안 묶여 소비로 또 세어진다.
+     * 월세가 계획으로 한 번, 소비로 한 번 빠져 하루 한도가 그만큼 잘못 줄어든다.
+     */
+    @Test fun 고정지출_자리표는_자리표인_채로_돌아온다() {
+        val plan = Txn(
+            id = "p1", amount = 500_000, merchant = "월세", category = Cat.HOUSING.name,
+            at = "2026-08-25T09:00:00", method = "계좌",
+            by = "fixed", dedup = "fixed|월세|500000|2026-08"
+        )
+        val real = plan.copy(id = "r1", at = "2026-08-25T09:10:00", dedup = "kb|500000|2026-08-25")
+        assertTrue(plan.isFixedPlan)
+        assertFalse(real.isFixedPlan)
+
+        val csv = Store.CSV_HEADER + "\n" +
+            Store.csvRow(plan) + "\n" + Store.csvRow(real)
+        val back = Store.parseCsv(csv)
+        assertEquals(listOf(true, false), back.map { it.isFixedPlan })
+        // 자리표 열쇠는 원래 꼴로 돌아와야 checkAutoFixed 가 같은 달에 또 안 만든다.
+        assertEquals("fixed|월세|500000|2026-08", back[0].dedup)
+    }
+
+    /** 예전에 내보낸 파일에는 '예정' 열이 없다. 그래도 읽혀야 한다. */
+    @Test fun 예정_열이_없는_예전_파일도_읽는다() {
+        val old = "날짜,시각,가맹점,금액,분류,세부분류,결제수단,취소,출처,메모\n" +
+            "2026-08-25,09:00:00,\"월세\",500000,\"고정지출\",\"\",\"계좌\",\"\",\"fixed\",\"\""
+        val back = Store.parseCsv(old).single()
+        assertEquals(500_000L, back.amount)
+        assertFalse(back.isFixedPlan)
     }
 
     /** 같은 파일을 두 번 넣어도 늘지 않게, 줄 내용에서 만든 dedup 이 같아야 한다. */

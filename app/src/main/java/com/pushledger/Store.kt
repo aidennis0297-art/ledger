@@ -58,9 +58,12 @@ object Store {
         // 예시가 필요하면 예산 탭의 "테스트 데이터 채우기" 를 직접 누르면 된다.
         checkAutoFixed(ym)
         month.value = readMonth(ym)
-        // 보관 중인 것은 다 읽는다. 결제 알림을 오래 두기로 해 놓고 화면에서
-        // 잡담 기준으로 잘라 버리면, 정작 고칠 근거가 파일에만 있고 눈에는 안 보인다.
-        inbox.value = readInboxRecent(maxOf(config.value.keepInboxDays, config.value.keepMoneyDays))
+        // 화면이 드는 창은 잡담 기준 하나다. 여기에 결제 원문 보관 기간(최대 1년)을
+        // 쓰면 앱을 켤 때마다 날짜 파일을 그 수만큼 열어 파싱하게 된다. 위젯 갱신처럼
+        // 브로드캐스트 안에서 ensure() 가 도는 자리에서는 그게 곧 ANR 이다.
+        // 오래된 결제 원문은 화면이 아니라 설정 › 데이터 › 알림 기록 CSV 로 꺼낸다 —
+        // 내보내기는 파일에서 직접 읽으므로 이 창에 안 잘린다.
+        inbox.value = readInboxRecent(config.value.keepInboxDays)
         fixes.value = readFixes()
         sweep()
         StatusNotifier.update(ctx)
@@ -375,19 +378,33 @@ object Store {
         return sb.toString()
     }
 
-    /** 내보내기 CSV 의 열 이름. 되읽기([parseCsv])가 이 이름으로 자리를 찾는다. */
-    const val CSV_HEADER = "날짜,시각,가맹점,금액,분류,세부분류,결제수단,취소,출처,메모"
+    /**
+     * 내보내기 CSV 의 열 이름. 되읽기([parseCsv])가 이 이름으로 자리를 찾는다.
+     *
+     * 마지막 `예정` 열은 아직 안 나간 고정지출 자리표([Txn.isFixedPlan])라는 표시다.
+     * 이게 없으면 복원한 자리표가 `by="fixed"` 인데 `dedup` 이 달라져 자리표로 안 보이고,
+     * [hasRealFixed] 가 '이미 나갔다' 고 답한다. 그러면 나중에 오는 진짜 출금 알림이
+     * 고정지출로 안 묶여 소비로 또 세어진다. 예전 파일에는 이 열이 없지만
+     * [parseCsv] 가 없는 열을 빈칸으로 보므로 그대로 읽힌다.
+     */
+    const val CSV_HEADER = "날짜,시각,가맹점,금액,분류,세부분류,결제수단,취소,출처,메모,예정"
 
     /**
      * 거래 한 줄. 내보내기와 되읽기가 이 한 함수를 사이에 두고 마주 본다.
      * 열을 바꿀 때 여기만 고치면 왕복 테스트가 어긋난 자리를 잡아 준다.
      */
     fun csvRow(t: Txn): String {
-        fun q(v: String) = "\"" + v.replace("\"", "\"\"") + "\""
+        // 줄바꿈을 공백으로 편다. 메모에 줄바꿈이 들어가면(입력칸이 여러 줄이고,
+        // AI 고침 사유도 메모에 이어 붙는다) 한 거래가 CSV 두 줄로 쪼개지고,
+        // 되읽기는 줄 단위로 자르므로 그 거래가 조용히 사라진다. 되살리려던 바로
+        // 그 데이터가 백업을 지나며 없어지는 꼴이라, 원문 내보내기와 같은 처리를 한다.
+        fun q(v: String) =
+            "\"" + v.replace('\n', ' ').replace('\r', ' ').replace("\"", "\"\"") + "\""
         return t.at.substring(0, 10) + "," + t.at.substring(11) + "," +
             q(t.merchant) + "," + t.amount + "," + q(t.cat.label) + "," +
             q(t.subCategory) + "," + q(t.method) + "," +
-            (if (t.canceled) "취소" else "") + "," + q(t.by) + "," + q(t.memo)
+            (if (t.canceled) "취소" else "") + "," + q(t.by) + "," + q(t.memo) + "," +
+            (if (t.isFixedPlan) "예정" else "")
     }
 
     /**
@@ -441,6 +458,7 @@ object Store {
         }
         val iCat = col("분류"); val iSub = col("세부분류"); val iMethod = col("결제수단")
         val iCancel = col("취소"); val iBy = col("출처"); val iMemo = col("메모")
+        val iPlan = col("예정")
 
         return lines.drop(1).mapNotNull { line ->
             runCatching {
@@ -462,8 +480,13 @@ object Store {
                     canceled = at(iCancel).isNotBlank(),
                     memo = at(iMemo),
                     by = at(iBy).ifBlank { "manual" },
-                    // 같은 파일을 두 번 넣어도 늘지 않게 줄 내용에서 열쇠를 만든다.
-                    dedup = "csv|$stamp|$amount|${at(iMerchant)}"
+                    // 자리표는 원래 쓰던 열쇠 꼴로 되돌린다. 그래야 Txn.isFixedPlan 이
+                    // 다시 참이 되고, checkAutoFixed 가 같은 달에 또 만들지도 않는다.
+                    // 나머지는 줄 내용에서 열쇠를 만들어 같은 파일을 두 번 넣어도 안 는다.
+                    dedup =
+                        if (at(iPlan).isNotBlank())
+                            "fixed|${at(iMerchant)}|$amount|${at(iDate).take(7)}"
+                        else "csv|$stamp|$amount|${at(iMerchant)}"
                 )
             }.getOrNull()
         }
@@ -766,6 +789,16 @@ object Store {
                     if (kept.isEmpty()) f.delete() else writeAtomic(f, json.encodeToString(kept))
                 }
             }
+        }
+
+        // 지운 것을 화면에서도 뺀다. 파일만 지우면 목록에는 그대로 남아, 사용자가
+        // 이미 없는 줄을 눌러 아무 일도 안 일어나는 자리가 된다. 보관 기간 칩은
+        // 저장 직후 여기를 부르므로 그 어긋남이 설정 화면에서 바로 보인다.
+        // 파일을 다시 읽지 않고 같은 규칙을 메모리에 그대로 적용한다.
+        val chatStamp = chatCut.toString()
+        val moneyStamp = moneyCut.toString()
+        inbox.value = inbox.value.filter {
+            if (it.isMoney) it.postedAt >= moneyStamp else it.postedAt >= chatStamp
         }
     }
 
