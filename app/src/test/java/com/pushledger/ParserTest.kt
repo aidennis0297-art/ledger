@@ -617,4 +617,95 @@ class ParserTest {
         val out = Parser.parse("결제 완료", "적립 ₩500 사용 ₩12,000 스타벅스")
         assertEquals(12_000L, (out as Parser.Out.Expense).amount)
     }
+
+    /**
+     * `(광고)` 가 붙은 문자는 금액이 있어도 돈이 움직인 게 아니다.
+     *
+     * 실기기 알림 6,955건 중 28건이 광고였다. [Parser.NOT_SPEND] 에 "광고" 가 있는데도
+     * 두 건이 새어 들어왔다 — 그쪽은 결제 낱말이 없을 때만 보는데, 광고 문구에
+     * "사용 중인 번호 그대로" 나 "특가" 가 섞여 결제 규칙이 먼저 걸리기 때문이다.
+     */
+    @Test fun 광고_문자는_지출도_취소도_아니다() {
+        // 알뜰폰 요금제 광고. `월 10원부터` 가 10원짜리 지출로 들어가 있었다.
+        val ad = Parser.parse(
+            "1670-9098",
+            "[Web발신] (광고)안녕하세요. 고고모바일입니다. 사용 중인 번호 그대로! " +
+                "[4개월 특가! 월 10원부터] 200분/10GB 10원"
+        )
+        assertTrue(ad.toString(), ad is Parser.Out.None)
+
+        // 쇼핑몰 광고. 수신거부 안내의 "알림받기취소" 때문에 17,800원 결제 취소로 들어갔다.
+        val sale = Parser.parse(
+            "애경본사직영몰",
+            "(광고)⏰단 4시간! 17,800원 반값 특가 (수신거부:톡톡더보기>혜택알림받기관리>알림받기취소)"
+        )
+        assertTrue(sale.toString(), sale is Parser.Out.None)
+    }
+
+    /**
+     * 취소는 무엇이 취소됐는지 말할 때만 취소다.
+     *
+     * 실기기 기록에서 취소로 잡힌 12건 중 7건이 취소가 아니었다. 그중 셋은 송금
+     * 알림이라 73,100원이 지출로도 안 들어가고 사라졌다.
+     */
+    @Test fun 안내_문구_속_취소는_결제_취소가_아니다() {
+        // 주문 확인서 맨 밑의 반품 안내. 결제는 실제로 일어났다.
+        val order = Parser.parse(
+            "한끼통살",
+            "전성호님, 주문건 결제 완료되었습니다. ▶결제금액 : 59,800원 " +
+                "※ 식품 특성상 취소 및 반품이 어려우니 배송지 정보를 다시 확인해 주세요."
+        )
+        assertEquals(59_800L, (order as Parser.Out.Expense).amount)
+
+        // 송금했다는 알림. "취소할 수 있어요" 는 상대가 받기 전까지 무를 수 있다는 안내다.
+        val sent = Parser.parse(
+            "카카오페이",
+            "김다은님에게 13,700원을 보냈어요. 송금 받기 전까지 보낸 분은 " +
+                "내역 상세화면에서 취소할 수 있어요."
+        )
+        assertEquals(13_700L, (sent as Parser.Out.Expense).amount)
+
+        // 진짜 취소는 그대로 취소다. 세 꼴 다 실기기 기록에 있는 문구다.
+        assertTrue(Parser.parse("토스", "12,500원 결제 취소 토스뱅크 체크카드 | 티머니") is Parser.Out.Cancel)
+        assertTrue(
+            Parser.parse("1588-3819", "[Web발신] [네이버페이]결제취소안내 올리브 19,300원") is Parser.Out.Cancel
+        )
+        assertTrue(Parser.parse("KB국민카드", "승인취소 12,000원 이마트") is Parser.Out.Cancel)
+    }
+
+    /**
+     * 링크와 눈에 안 보이는 방향 문자는 가맹점 이름이 아니다.
+     *
+     * 네이버페이 문자 다섯 건의 가맹점이 전부 `naver.me` 였다. 도메인이 가장 긴 토큰이라
+     * 뽑힌 것인데, 서로 다른 가게가 한 이름으로 뭉치면 [Store.recallCategory] 의
+     * 분류 기억까지 같이 오염된다.
+     *
+     * 문자 제목은 `⁨1588-3819⁩` 처럼 U+2068/U+2069 로 감싸여 온다. 눈에는 안 보이지만
+     * 이름에 남으면 같은 가게가 매번 다른 이름이 되어 중복 판정도 기억도 어긋난다.
+     */
+    @Test fun 링크와_보이지_않는_문자는_가맹점이_아니다() {
+        val out = Parser.parse(
+            "⁨1588-3819⁩",
+            "[Web발신] [네이버페이]결제완료안내 올리브… '[8/31 하루…' 19,300원 http://naver.me/PayO"
+        )
+        val e = out as Parser.Out.Expense
+        assertEquals(19_300L, e.amount)
+        assertEquals("올리브", e.merchant)
+
+        // 주소 꼴 상호는 남는다. 스킴이 없으면 링크가 아니라 가게 이름이다.
+        val ali = Parser.parse("카드", "ALIEXPRESS.COM 26,282원 결제")
+        assertEquals("ALIEXPRESS.COM", (ali as Parser.Out.Expense).merchant)
+    }
+
+    /** 후불교통 정산 문자는 가맹점 자리에 `교통대금` 이 그대로 온다. */
+    @Test fun 교통대금은_교통비로_본다() {
+        val out = Parser.parse(
+            "KB국민카드",
+            "[Web발신] [KB국민체크]전*호님 교통대금 8,800원 09/03 체크결제계좌(537)에서 출금예정"
+        )
+        val e = out as Parser.Out.Expense
+        assertEquals(8_800L, e.amount)
+        assertEquals(Cat.LEISURE, Parser.guessCat(e.merchant))
+        assertEquals("교통/차량", Parser.guessSubCat(e.merchant, Cat.LEISURE))
+    }
 }
