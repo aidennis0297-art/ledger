@@ -203,9 +203,14 @@ class NotifListener : NotificationListenerService() {
             is Parser.Out.None -> {
                 // 금액이 보이는데 못 읽은 것만 미처리로 올린다. 나머지는 잡담 칸에 쌓아 두고
                 // 필요할 때 찾아볼 수 있게 남긴다 — 여기 없으면 왜 안 잡혔는지 알 길이 없다.
-                // ponytail: 켠 앱의 잡담까지 보관 기간(기본 30일) 내내 쌓인다. 카카오톡처럼
-                // 결제와 대화가 같은 앱으로 오는 경우 하루 수백 건이 될 수 있다.
-                // 눈에 띄게 무거워지면 설정의 보관 기간을 줄이거나, 여기서 잡담만 더 짧게 둔다.
+                // 잡담이 쌓이는 문제는 보관 기간을 둘로 갈라 풀었다 — 잡담은
+                // `keepInboxDays`(기본 30일), 돈이 걸린 것은 `keepMoneyDays`(기본 90일)다.
+                // `Store.sweep()` 이 둘 다 지난 날은 파일째 지우고, 잡담만 지난 날은
+                // 파일을 다시 써서 `Raw.isMoney` 인 줄만 남긴다.
+                //
+                // 카카오톡처럼 결제와 대화가 같은 앱으로 오면 여전히 하루 수백 건이 된다
+                // (사용자 기록에서 3주에 382건). 무거워지면 설정에서 잡담 기간을 7일까지
+                // 줄일 수 있다 — 그 손잡이는 이미 있으니 코드를 더 손댈 일은 아니다.
                 if (Parser.looksLikeMoney(title, body)) log(Raw.PENDING, out.reason)
                 else log(Raw.NOISE, out.reason)
             }
