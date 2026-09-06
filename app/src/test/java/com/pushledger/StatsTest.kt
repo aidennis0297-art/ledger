@@ -50,6 +50,29 @@ class StatsTest {
         assertEquals(1_200_000L, Stats.monthRemain(base.copy(budgetExcludesSaving = true), txns))
     }
 
+    /**
+     * 남은 돈은 고정지출을 미리 뺀다. 하루 한도와 기준이 같아야 한다.
+     *
+     * `monthlyBudget` 에는 월세 몫이 들어 있고 `total()` 에는 안 들어 있다. 그냥 빼면
+     * 아직 안 나간 월세만큼 남은 돈이 부풀어, 같은 화면의 두 숫자가 다른 말을 한다.
+     */
+    @Test fun 남은_돈은_고정지출을_미리_뺀다() {
+        val cfg = Config(
+            monthlyBudget = 2_000_000L,
+            fixed = listOf(Fixed(id = "f1", name = "월세", amount = 580_000L, day = 25))
+        )
+        val txns = listOf(txn("2026-08-05T12:00:00", 300_000L))
+        assertEquals(1_120_000L, Stats.monthRemain(cfg, txns))
+
+        // 월세가 실제로 나가도 같은 값이어야 한다. 나간 줄은 by="fixed" 라
+        // total() 에 안 들어오므로 두 번 빠지지 않는다.
+        val paid = txns + Txn(
+            id = "r", amount = 580_000L, merchant = "월세", category = Cat.HOUSING.name,
+            subCategory = "고정지출", at = "2026-08-25T12:00:00", by = "fixed"
+        )
+        assertEquals(1_120_000L, Stats.monthRemain(cfg, paid))
+    }
+
     @Test fun 월별_합계는_거래가_없는_달도_한_칸씩_남긴다() {
         val m = Stats.byMonth(
             listOf(

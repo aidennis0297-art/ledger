@@ -263,13 +263,24 @@ object Stats {
     }
 
     /**
-     * 이번 달 남은 돈.
+     * 이번 달 **변동 소비로** 더 쓸 수 있는 돈.
      *
      * 홈의 큰 숫자, 상태창 알림, 위젯이 모두 이 값을 쓴다. 세 곳이 각자 계산하면
      * 저축 제외 스위치를 켰을 때 화면마다 다른 숫자를 말하게 된다.
+     *
+     * **고정지출을 미리 뺀다.** 예전에는 `monthlyBudget - total(month)` 이었는데,
+     * 그건 [variableBudget] 이 "매번 틀린다" 고 적어 둔 바로 그 짝이다 —
+     * `monthlyBudget` 에는 월세 몫이 들어 있고 [total] 에는 안 들어 있어서
+     * (`active()` 가 `by="fixed"` 를 빼고, 월세가 실제로 나가도 그 줄은 `by="fixed"`
+     * 인 채로 갈아 끼워지므로 어느 시점에도 안 들어온다), 아직 안 나간 월세만큼
+     * 남은 돈이 부풀었다. 홈은 `80만원 남음` 이라 하고 그 아래 하루 한도는 월세를
+     * 이미 빼 둔 값이라, 같은 화면의 두 숫자가 다른 기준으로 말하고 있었다.
+     *
+     * 이 앱에서 숫자가 어긋난 다섯 번째이자 마지막 자리다. 앞의 넷은 [variableBudget]
+     * 주석에 적혀 있다.
      */
     fun monthRemain(cfg: Config, month: List<Txn>): Long =
-        cfg.monthlyBudget - total(month) -
+        cfg.monthlyBudget - fixedTotal(cfg) - total(month) -
             (if (cfg.budgetExcludesSaving) investGoal(cfg) else 0L)
 
     /** 이번 달 고정지출 합계. */
