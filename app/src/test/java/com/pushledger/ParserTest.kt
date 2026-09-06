@@ -697,6 +697,30 @@ class ParserTest {
         assertEquals("ALIEXPRESS.COM", (ali as Parser.Out.Expense).merchant)
     }
 
+    /**
+     * 카카오페이 송금은 상대를 제목에 두고 본문에는 조사 없이 내 행동만 적는다.
+     * 실기기 기록에서 이 꼴로 온 송금 세 건 73,100원이 규칙에 안 걸리고 있었다.
+     */
+    @Test fun 조사_없는_송금도_지출로_본다() {
+        val out = Parser.parse(
+            "김다은",
+            "13,700원을 보냈어요. 송금 받기 전까지 보낸 분은 내역 상세화면에서 취소할 수 있어요."
+        )
+        val e = out as Parser.Out.Expense
+        assertEquals(13_700L, e.amount)
+        assertEquals("김다은님 송금", e.merchant)
+
+        // 방향이 뒤집히면 안 된다. "님이" 가 있으면 상대가 보낸 것이라 수입이다.
+        val got = Parser.parse("카카오페이", "조성현님이 10,000원을 보냈어요.")
+        assertTrue(got.toString(), got is Parser.Out.Income)
+
+        // 받은 쪽 알림은 지출이 아니다.
+        assertTrue(Parser.parse("조성현", "10,000원을 받았어요.") !is Parser.Out.Expense)
+
+        // 사진·릴스는 금액이 없어 애초에 안 걸린다. `보냈` 만 보면 안 되는 이유다.
+        assertTrue(Parser.parse("명한돌", "회원님에게 릴스를 보냈습니다") is Parser.Out.None)
+    }
+
     /** 후불교통 정산 문자는 가맹점 자리에 `교통대금` 이 그대로 온다. */
     @Test fun 교통대금은_교통비로_본다() {
         val out = Parser.parse(

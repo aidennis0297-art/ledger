@@ -85,6 +85,25 @@ object Parser {
             """|님께서\s*[^.]{0,14}받았|받기\s*완료|수령\s*완료"""
     )
     private val SENT_BY_ME = Regex("""님(에게|께)\s*[^.]{0,14}(보냈|송금)|송금\s*완료|이체\s*완료|보내기\s*완료""")
+
+    /**
+     * 조사가 없는 송금 알림. **카카오페이는 상대를 제목에 두고 본문에는 내 행동만 적는다.**
+     *
+     *   제목 `김다은` · 본문 `13,700원을 보냈어요. 송금 받기 전까지 ... 취소할 수 있어요.`
+     *
+     * [SENT_BY_ME] 는 "님에게" 라는 조사로 방향을 가리는데 이 꼴에는 조사가 아예 없다.
+     * 실기기 기록에서 이렇게 온 송금 세 건 73,100원이 규칙에 안 걸려 미처리로만 남아 있었다.
+     *
+     * `보냈` 만 보면 안 된다 — 이 기록의 `보냈` 62건 중 대부분은 인스타 릴스와 카톡 사진
+     * (`회원님에게 릴스를 보냈습니다`)이다. 금액이 바로 앞에 붙은 `원을 보냈` 만 본다.
+     */
+    private val SENT_PLAIN = Regex("""원을\s*보냈""")
+
+    /** 방향을 뒤집는 단 하나의 표지. "○○님이 ... 보냈" 은 상대가 보낸 것이다. */
+    private val SENDER_MARK = Regex("""님이""")
+
+    /** 제목 한 줄이 통째로 사람 이름인지. 카카오페이 송금 알림의 제목이 그 꼴이다. */
+    private val NAME_ONLY = Regex("""^[가-힣*]{2,4}$""")
     private val I_RECEIVED = Regex(
         """입금|송금받|받았습니다|용돈|상여금|급여|환급|캐시백""" +
             """|님이\s*[^.]{0,14}보냈|님(에게|께)\s*[^.]{0,14}받았"""
@@ -255,8 +274,14 @@ object Parser {
         if (OTHER_RECEIVED.containsMatchIn(body) && !SPEND.containsMatchIn(body))
             return Out.None("상대가 받은 송금 확인 (보낼 때 이미 기록됨)")
 
-        if (SENT_BY_ME.containsMatchIn(body) && !CANCEL.containsMatchIn(body)) {
+        // 조사가 있으면 [SENT_BY_ME], 없으면 [SENT_PLAIN]. 뒤쪽은 "님이" 가 없을 때만 —
+        // 있으면 상대가 보낸 것이라 아래 수입 규칙이 받아야 한다.
+        val iSent = SENT_BY_ME.containsMatchIn(body) ||
+            (SENT_PLAIN.containsMatchIn(body) && !SENDER_MARK.containsMatchIn(body))
+        if (iSent && !CANCEL.containsMatchIn(body)) {
+            // 조사 없는 꼴은 상대가 본문이 아니라 제목에 있다.
             val to = PERSON.find(body)?.groupValues?.get(1).orEmpty()
+                .ifBlank { flat(title).trim().takeIf { NAME_ONLY.matches(it) }.orEmpty() }
             return Out.Expense(amount, if (to.isBlank()) "송금" else "${to}님 송금", pickMethod(body))
         }
 
