@@ -16,7 +16,7 @@ import java.time.YearMonth
  * 위젯 칸 크기를 보고 무엇을 펼칠지 정한 결과.
  *
  * [dots] 는 한 줄에 놓을 알갱이 수, [dotRows] 는 줄 수다. 둘을 나눠 둔 이유는
- * 불변식 13 이다 — 띠를 두껍게 할 때 알갱이를 키우지 않고 줄을 늘린다.
+ * 불변식 14 다 — 띠를 두껍게 할 때 알갱이를 키우지 않고 줄을 늘린다.
  */
 data class WidgetPlan(
     val dots: Int,

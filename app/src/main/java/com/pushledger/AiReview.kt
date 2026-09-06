@@ -89,7 +89,7 @@ class ReviewWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 val fixes = list.mapNotNull { s ->
                     val before = batch.getOrNull(s.i - 1) ?: return@mapNotNull null
 
-                    // 이미 기록된 지출을 수입으로 바꾸자는 제안은 버린다(불변식 14).
+                    // 이미 기록된 지출을 수입으로 바꾸자는 제안은 버린다(불변식 15).
                     //
                     // 이 앱은 수입을 기록하지 않는데, 여기는 그 규칙을 지나지 않는 세 번째
                     // 길이었다. 적용하면 그 거래가 `Stats.active()` 에서 빠지고
