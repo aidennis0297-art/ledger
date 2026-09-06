@@ -210,6 +210,36 @@ class StatsTest {
     }
 
     /**
+     * `Stats.total()` 의 짝은 `cfg.monthlyBudget` 이 아니라 `variableBudget` 이다.
+     *
+     * 이 앱에서 숫자가 어긋난 자리는 거의 다 그 짝을 잘못 맞춘 것이었다 — 위젯의
+     * '이대로면 월', 리포트의 월말 예상과 소진 예상일, 홈·예산 탭의 예산 띠,
+     * 리포트 프롬프트까지 넷. `total` 은 고정지출을 빼고 세는데 `monthlyBudget` 에는
+     * 그 몫이 들어 있어서, 나란히 놓으면 늘 고정지출만큼 여유 있어 보인다.
+     */
+    @Test fun 변동_예산은_고정지출과_저축을_뺀_값이다() {
+        val cfg = Config(
+            monthlyBudget = 1_000_000,
+            fixed = listOf(Fixed(id = "f1", name = "월세", amount = 500_000, day = 1)),
+            catBudget = mapOf("INVEST_GOAL" to 100_000)
+        )
+        assertEquals(400_000L, Stats.variableBudget(cfg))
+
+        // 고정지출과 저축이 예산을 넘겨도 음수로 내려가지 않는다.
+        val tight = cfg.copy(monthlyBudget = 300_000)
+        assertEquals(0L, Stats.variableBudget(tight))
+
+        // 실제로 나간 돈이 아니라 계획을 뺀다. 이달 소비가 얼마든 이 값은 안 변한다.
+        val spent = listOf(
+            Txn(id = "a", amount = 200_000, merchant = "가게", at = "2026-08-10T12:00:00")
+        )
+        assertEquals(400_000L, Stats.variableBudget(cfg))
+        assertEquals(200_000L, Stats.total(spent))
+        // 견줄 짝은 이 둘이다. total 을 monthlyBudget 과 견주면 80만이 남은 것처럼 보인다.
+        assertEquals(200_000L, Stats.variableBudget(cfg) - Stats.total(spent))
+    }
+
+    /**
      * 튀는 결제. 표본이 적을 때 아무거나 튄다고 하면 그 표시를 아무도 안 믿게 된다.
      */
     @Test fun 튀는_결제는_표본이_모였을_때만_고른다() {

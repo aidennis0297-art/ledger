@@ -274,6 +274,22 @@ object Stats {
     fun fixedTotal(cfg: Config): Long = cfg.fixed.sumOf { it.amount }
 
     /**
+     * 이번 달 **변동 소비에 쓸 수 있는 계획 금액**. `월 예산 − 고정지출 − 저축 목표`.
+     *
+     * [total] 과 짝이 되는 값이다. `total` 은 고정지출을 빼고 세는데(불변식 1)
+     * `cfg.monthlyBudget` 에는 그 몫이 들어 있어서, **둘을 나란히 놓으면 매번 틀린다.**
+     * 이 앱에서 숫자가 어긋난 자리는 거의 다 그 짝이었다 — 위젯의 '이대로면 월',
+     * 리포트의 월말 예상과 소진 예상일, 홈·예산 탭의 예산 띠, 리포트 프롬프트까지 넷.
+     * **`total(month)` 을 무언가와 견줄 일이 생기면 `monthlyBudget` 이 아니라 이 값이다.**
+     *
+     * 실제로 나간 돈이 아니라 **계획**을 뺀다. 저축을 아직 안 했다고 해서 그 돈을
+     * 이번 달에 써도 되는 것은 아니다. 살아 있는 하루 한도([dailyBudget])는 실제
+     * 투자액을 빼는데, 그건 "지금 남은 돈" 을 재는 다른 질문이라 일부러 다르다.
+     */
+    fun variableBudget(cfg: Config): Long =
+        (cfg.monthlyBudget - fixedTotal(cfg) - investGoal(cfg)).coerceAtLeast(0L)
+
+    /**
      * 이대로 쓰면 말일에 얼마가 되는지. 예산을 넘긴 뒤가 아니라 넘기기 전에 알리는 값이다.
      *
      * **변동 소비만 늘리고 고정지출은 계획 금액을 그대로 더한다.** 월세는 달에 한 번

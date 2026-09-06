@@ -340,7 +340,7 @@ object LocalCoach {
                 // 소진 예상일은 **변동 예산**으로 잰다. 고정지출은 하루하루 새어 나가는
                 // 돈이 아니라 달에 한 번 통째로 빠지는 돈이라, 월 예산 전체를 하루 소비
                 // 속도로 나누면 실제보다 한참 늦은 날이 나온다.
-                val varBudget = (cfg.monthlyBudget - Stats.fixedTotal(cfg)).coerceAtLeast(0L)
+                val varBudget = Stats.variableBudget(cfg)
                 if (perDay > 0 && varBudget > 0) {
                     val burn = varBudget / perDay
                     if (burn <= ym.lengthOfMonth()) {

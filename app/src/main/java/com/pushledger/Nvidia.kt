@@ -260,9 +260,7 @@ $CATS
 - 월 총 예산: ${cfg.monthlyBudget}원
 - 고정지출 계획: ${Stats.fixedTotal(cfg)}원
 - 저축 목표: ${Stats.investGoal(cfg)}원
-- **쓸 수 있는 변동 예산: ${
-        (cfg.monthlyBudget - Stats.fixedTotal(cfg) - Stats.investGoal(cfg)).coerceAtLeast(0L)
-    }원** (월 총 예산 − 고정지출 − 저축)${
+- **쓸 수 있는 변동 예산: ${Stats.variableBudget(cfg)}원** (월 총 예산 − 고정지출 − 저축)${
         Stats.incomeTotal(txns).let { if (it > 0L) "\n- 추가 수입: ${it}원" else "" }
     }
 - 하루 가용 예산: ${daily.dailyLimit}원 (오늘 지출 ${daily.todaySpent}원)
