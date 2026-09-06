@@ -216,7 +216,11 @@ object LocalCoach {
         val elapsed = today.dayOfMonth
         val left = (ym.lengthOfMonth() - elapsed).coerceAtLeast(0)
         val perDay = if (elapsed > 0) total / elapsed else 0L
-        val projected = perDay * ym.lengthOfMonth()
+        // 위젯·홈의 '이대로면 월' 과 같은 함수를 쓴다. 예전에는 여기서 따로
+        // `perDay * 총일수` 로 셌는데, 그 값에는 고정지출이 안 들어 있는 채로
+        // 고정지출 몫이 든 월 예산과 견주고 있었다. 월세만큼 늘 여유 있어 보여서
+        // 리포트는 "남길 속도" 라고 하고 홈 위젯은 "넘김" 이라고 하는 일이 생긴다.
+        val projected = Stats.monthPace(cfg, txns, today)
 
         val busiest = spent.maxByOrNull { it.value }
         val quiet = spent.count { it.value == 0L }
@@ -333,8 +337,12 @@ object LocalCoach {
                     "- 예산 ${won(cfg.monthlyBudget)} 대비: " +
                         if (gap >= 0) "${won(round(gap))} 남길 속도" else "${won(round(-gap))} 넘길 속도"
                 )
-                if (perDay > 0) {
-                    val burn = cfg.monthlyBudget / perDay
+                // 소진 예상일은 **변동 예산**으로 잰다. 고정지출은 하루하루 새어 나가는
+                // 돈이 아니라 달에 한 번 통째로 빠지는 돈이라, 월 예산 전체를 하루 소비
+                // 속도로 나누면 실제보다 한참 늦은 날이 나온다.
+                val varBudget = (cfg.monthlyBudget - Stats.fixedTotal(cfg)).coerceAtLeast(0L)
+                if (perDay > 0 && varBudget > 0) {
+                    val burn = varBudget / perDay
                     if (burn <= ym.lengthOfMonth()) {
                         appendLine("- 예산 소진 예상일: ${ym.monthValue}월 ${burn.coerceAtMost(31L)}일 무렵")
                     }
