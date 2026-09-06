@@ -580,6 +580,26 @@ class ParserTest {
         assertTrue("$ali", (ali as Parser.Out.Expense).merchant.contains("ALIEXPRESS"))
     }
 
+    /**
+     * 이름 한가운데 있는 괄호가 가맹점을 쪼개면 안 된다.
+     *
+     * 실기기 기록의 `아크(ARK)PC방` 이 `아크` + `PC방` 으로 갈려 `PC방` 만 남았다.
+     * 뒤에서 가장 긴 토큰을 고르는 규칙 때문에 앞쪽이 통째로 떨어져 나간다.
+     */
+    @Test fun 이름_속_괄호가_가맹점을_쪼개지_않는다() {
+        val out = Parser.parse("토스", "1,000원 결제 토스뱅크 체크카드 | 아크(ARK)PC방")
+        assertTrue("$out", out is Parser.Out.Expense)
+        assertEquals("아크PC방", (out as Parser.Out.Expense).merchant)
+
+        // 카드사 괄호는 여전히 통째로 사라져야 한다. 붙인다고 `국민1234` 가 남으면 안 된다.
+        val card = Parser.parse("알림", "국민(1234) 스타벅스 9,500원 승인")
+        assertEquals("스타벅스", (card as Parser.Out.Expense).merchant)
+
+        // 대괄호 꼬리표도 그대로 사라진다.
+        val web = Parser.parse("알림", "[Web발신] 이마트 12,000원 결제")
+        assertEquals("이마트", (web as Parser.Out.Expense).merchant)
+    }
+
     /** 기호가 붙어도 누적·적립 뒤에 오는 숫자는 결제액이 아니다. */
     @Test fun 원화기호도_적립_뒤의_숫자는_안_집는다() {
         // CU멤버십 알림. 점수는 금액이 아니므로 애초에 안 걸려야 한다.
