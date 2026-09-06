@@ -152,46 +152,33 @@ class NotifListener : NotificationListenerService() {
                 )
             }
 
+            // 입금은 가계부에 넣지 않는다. 사용자가 명시적으로 요구한 규칙이다.
+            //
+            // 하루 가용 예산이 `월예산 + 수입 - 고정지출 - 투자` 라서 입금 한 건이 그대로
+            // 예산에 더해진다. 실기기 기록의 `1,500,000원 입금 / 정은실 → 내 토스뱅크 통장`
+            // 하나가 그 달 남은 나흘 기준 하루 한도를 37만원씩 밀어 올렸고, 사용자는
+            // 그 거래를 손으로 지웠다. 용돈·정산금·계좌 이체가 전부 같은 "입금" 문구로
+            // 오기 때문에 문구로는 가를 수 없고, 임계값을 두면 그 숫자가 새 오차가 된다.
+            //
+            // 버리지는 않는다. 알림함에 사유와 함께 남으므로, 정말 수입으로 잡고 싶으면
+            // 그 줄에서 직접 추가로 넣을 수 있다.
             is Parser.Out.Income -> {
-                val sender = out.sender.ifBlank { "추가 수입" }
-                val added = Store.addTxn(
-                    Txn(
-                        id = Store.newId(), amount = out.amount,
-                        merchant = Merchant.clean(sender),
-                        category = Cat.INCOME.name, subCategory = "용돈/보너스",
-                        at = stamp, method = out.method,
-                        sourcePkg = pkg,
-                        by = "rule",
-                        dedup = dedup
-                    )
-                )
-                log(
-                    if (added) Raw.DONE else Raw.IGNORED,
-                    if (added) "규칙: $sender 입금 ${out.amount}원"
-                    else "10초 안에 같은 금액이 이미 기록돼 건너뜀"
-                )
+                val sender = out.sender.ifBlank { "입금" }
+                log(Raw.IGNORED, "수입은 기록하지 않습니다 — $sender ${out.amount}원")
             }
 
             is Parser.Out.Settle -> {
                 // 되받은 돈이다. 직전 24시간 지출에서 그만큼 뺀다.
-                // 짝을 못 찾으면 정산이 아니라 그냥 받은 돈이었을 수 있으니 수입으로 넣는다.
+                //
+                // 짝을 못 찾으면 예전에는 수입으로 넣었다. 그러다 카카오톡 정산 **요청**
+                // 38,000원이 수입으로 들어간 적이 있다. 수입을 안 만들기로 했으므로
+                // 이제는 알림함에 미처리로 남겨 사용자가 고르게 한다 — 짝을 못 찾은 건
+                // 규칙이 뜻을 모른다는 뜻이고, 모를 때 임의로 정하면 조용히 틀린다.
                 val hit = Store.applySettlement(out.amount, out.from, at)
                 if (hit != null) {
                     log(Raw.DONE, "규칙: ${hit.merchant} 결제에서 정산 ${out.amount}원 뺌")
                 } else {
-                    val added = Store.addTxn(
-                        Txn(
-                            id = Store.newId(), amount = out.amount,
-                            merchant = Merchant.clean(out.from).ifBlank { "정산금" },
-                            category = Cat.INCOME.name, subCategory = "기타수입",
-                            at = stamp, sourcePkg = pkg, by = "rule", dedup = dedup
-                        )
-                    )
-                    log(
-                        if (added) Raw.DONE else Raw.IGNORED,
-                        if (added) "규칙: 짝지을 지출을 못 찾아 수입으로 넣음 (${out.amount}원)"
-                        else "10초 안에 같은 금액이 이미 기록돼 건너뜀"
-                    )
+                    log(Raw.PENDING, "짝지을 지출을 못 찾았습니다 (${out.amount}원)")
                 }
             }
 

@@ -126,6 +126,17 @@ class AiWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, pa
                             fail++
                         }
                     }
+                    // 수입은 가계부에 넣지 않는다. 규칙 경로와 같은 이유다(NotifListener 참고) —
+                    // 하루 가용 예산이 수입을 그대로 더하므로 입금 한 건이 예산을 통째로 민다.
+                    // AI 는 "입금" 문구를 특히 잘 수입으로 읽는다.
+                    // 다만 사용자가 그 가맹점을 수입으로 정해 뒀다면 그건 사용자 뜻이므로 넣는다.
+                    res.category == Cat.INCOME &&
+                        Store.recallCategory(
+                            Merchant.clean(res.merchant).ifBlank { raw.appLabel }
+                        ) == null -> {
+                        Store.setRawState(id, Raw.IGNORED, "수입은 기록하지 않습니다 (${res.amount}원)")
+                        ok++
+                    }
                     res.amount <= 0L -> {
                         // 금액이 0 인 채로 넣으면 내역에 0원짜리 유령 줄이 남는다.
                         Store.setRawState(id, Raw.FAILED, "AI: 금액을 못 읽음")

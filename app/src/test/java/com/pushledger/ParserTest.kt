@@ -504,6 +504,42 @@ class ParserTest {
     }
 
     /**
+     * 술집도 밥값이다. 실기기 기록에서 생생호프 54,800원과 호맥 55,500원이
+     * 기타/기타지출로 빠져 있었다. 금액이 커서 식비 통계가 통째로 어긋난다.
+     */
+    @Test fun 술집도_식비로_본다() {
+        listOf("생생호프 서산예천점", "○○포차", "이자카야 소라", "생맥주창고").forEach {
+            assertEquals(it, Cat.FOOD, Parser.guessCat(it))
+            assertEquals(it, "식당/외식", Parser.guessSubCat(it, Cat.FOOD))
+        }
+        // `호맥` 같은 개별 상호까지 규칙에 넣지는 않는다. 업종 낱말이 아니라 가게 이름이고,
+        // 그런 건 사용자가 한 번 고치면 catMemory 가 기억한다(불변식 9). 규칙을 상호로
+        // 채우기 시작하면 끝이 없고, 남의 가게 이름을 잘못 삼키는 쪽이 더 위험하다.
+        assertEquals(Cat.ETC, Parser.guessCat("호맥 예천점"))
+    }
+
+    /**
+     * 쿠팡은 옷보다 생필품이 훨씬 잦다.
+     * 사용자 가계부에서도 아홉 건 중 일곱 건을 손수 생활/생필품으로 고쳐 놨다.
+     */
+    @Test fun 쿠팡은_생필품으로_본다() {
+        assertEquals(Cat.LIVING, Parser.guessCat("쿠팡"))
+        // 쿠팡이츠는 여전히 배달이다. `쿠팡` 을 생활에 넣으며 같이 끌려가면 안 된다.
+        assertEquals(Cat.FOOD, Parser.guessCat("쿠팡이츠"))
+        assertEquals("배달", Parser.guessSubCat("쿠팡이츠", Cat.FOOD))
+    }
+
+    /**
+     * 입금은 가계부에 넣지 않기로 했다. 파서는 여전히 수입으로 읽어야 한다 —
+     * 기록할지 말지는 `NotifListener` 가 정하고, 알림함에 사유를 남겨야 하기 때문이다.
+     */
+    @Test fun 입금은_수입으로_읽되_기록은_호출자가_정한다() {
+        val out = Parser.parse("토스", "1,500,000원 입금 정은실 → 내 토스뱅크 통장")
+        assertTrue("$out", out is Parser.Out.Income)
+        assertEquals(1_500_000L, (out as Parser.Out.Income).amount)
+    }
+
+    /**
      * 가맹점 자리에 문장이 앉으면 안 된다.
      *
      * 실기기 기록에서 한끼통살 주문 알림의 가맹점이 `완료되었습니다` 로 들어가 있었다.
