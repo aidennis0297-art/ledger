@@ -563,17 +563,21 @@ class ParserTest {
         val cut = Parser.parse("한끼통살", "주문건 결제 완료되었습니다.  ▶결제금액 : 59,800원 ..")
         assertTrue("$cut", (cut as Parser.Out.Expense).merchant.contains("한끼통살"))
 
-        // 접수번호와 날짜 조각이 가맹점이 되면 안 된다. 길다는 이유로 뽑혔었다.
-        // 이 알림은 본문에 이름보다 설명이 많아 아직 제목까지 못 간다 — 적어도
-        // 코드나 날짜가 가게 이름 행세를 하지는 않는 데까지가 지금 보장하는 선이다.
+        // 본문이 문단처럼 길면 제목을 먼저 본다. 이 알림은 본문에 인사말·접수번호·
+        // 점검제품·엔지니어가 줄줄이 있고 가맹점은 제목에만 있어서, 본문에서 고르면
+        // `설문조사` 가 뽑혔다.
         val svc = Parser.parse(
             "삼성전자서비스",
-            "■ 접수번호 : 202608261416WEB010 ■ 점검제품 : 시스템 에어컨 " +
-                "■ 완료일자 : 2026년 08월 28일 ■ 결제금액 : 166000원"
+            "안녕하세요 삼성전자서비스입니다.  고객님의 서비스 내역과 함께 보다 나은 " +
+                "서비스 제공을 위한 설문조사 참여를 안내해 드립니다.  [서비스 내역] " +
+                "■ 접수번호 : 202608261416WEB010 ■ 점검제품 : 시스템 에어컨(AC090RN4PBH1) " +
+                "■ 엔지니어 : 김봉규 ■ 완료일자 : 2026년 08월 28일 ■ 결제금액 : 166000원"
         )
-        val name = (svc as Parser.Out.Expense).merchant
-        assertFalse(name, name.contains("WEB010"))
-        assertFalse(name, name.endsWith("년") || name.endsWith("월") || name.endsWith("일"))
+        assertTrue("$svc", (svc as Parser.Out.Expense).merchant.contains("삼성전자서비스"))
+
+        // 짧은 카드 알림은 그대로 본문에서 뽑는다. 제목에는 금액밖에 없다.
+        val card2 = Parser.parse("7,100원 결제", "토스뱅크 체크카드 | 씨유 휘경행복점 잔액 1,157,953원")
+        assertEquals("씨유 휘경행복점", (card2 as Parser.Out.Expense).merchant)
 
         // 한글 없는 영문 상호는 그대로 살아야 한다. 코드 거르기에 걸리면 안 된다.
         val ali = Parser.parse("알림", "ALIEXPRESS.COM 7,485원 결제")

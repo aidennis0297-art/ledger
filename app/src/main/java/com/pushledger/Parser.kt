@@ -191,7 +191,7 @@ object Parser {
         val amount = pickAmount(body) ?: return Out.None("금액 못 찾음")
 
         if (cancel) {
-            val merchant = pickMerchant(text).ifBlank { pickMerchant(title) }
+            val merchant = pickName(title, text)
             return Out.Cancel(amount, merchant)
         }
 
@@ -209,7 +209,7 @@ object Parser {
 
         // 배당금은 수입이되 용돈과 다른 칸이다.
         if (DIVIDEND.containsMatchIn(body) && !SPEND.containsMatchIn(body)) {
-            return Out.Income(amount, pickMerchant(text).ifBlank { pickMerchant(title) }, "계좌")
+            return Out.Income(amount, pickName(title, text), "계좌")
         }
 
         // 정산 문구가 붙어 있으면 방향을 따질 것도 없다. 정산은 언제나 내가 받는 쪽이다.
@@ -231,7 +231,7 @@ object Parser {
         // 수입 / 용돈 / 입금 알림
         if (I_RECEIVED.containsMatchIn(body) && !SPEND.containsMatchIn(body)) {
             val person = PERSON.find(body)?.groupValues?.get(1).orEmpty()
-            val sender = person.ifBlank { pickMerchant(text).ifBlank { pickMerchant(title) } }
+            val sender = person.ifBlank { pickName(title, text) }
             return Out.Income(amount, sender, pickMethod(body))
         }
 
@@ -241,7 +241,7 @@ object Parser {
         if (!SPEND.containsMatchIn(body)) return Out.None("결제 문구 없음")
 
         // 제목은 대개 카드사나 앱 이름이라 가맹점 후보로 두면 그쪽이 뽑힌다. 본문을 먼저 본다.
-        val merchant = pickMerchant(text).ifBlank { pickMerchant(title) }
+        val merchant = pickName(title, text)
         return Out.Expense(amount, merchant, pickMethod(body))
     }
 
@@ -258,7 +258,7 @@ object Parser {
     fun salvage(title: String, text: String): Pair<Long, String> {
         val body = "$title $text".replace('\n', ' ')
         val amount = pickAmount(body) ?: 0L
-        val merchant = pickMerchant(text).ifBlank { pickMerchant(title) }
+        val merchant = pickName(title, text)
         return amount to merchant
     }
 
@@ -286,6 +286,23 @@ object Parser {
      *
      * 그래서 지점으로 끝나는 토큰은 혼자 두지 않고 바로 앞 토큰과 붙인다.
      */
+    /**
+     * 가맹점을 제목과 본문 중 어디서 뽑을지 정한다.
+     *
+     * 카드·간편결제 알림은 본문이 짧고 그 안에 가맹점이 있다
+     * (`토스뱅크 체크카드 | 씨유 휘경행복점 잔액 1,157,953원`). 그래서 본문이 먼저다.
+     *
+     * 그런데 안내 문자와 주문 확인은 본문이 문단이다. 실기기 기록의 삼성전자서비스
+     * 수리비 알림은 본문에 인사말·접수번호·점검제품·엔지니어가 줄줄이 있고 가맹점은
+     * **제목에만** 있어서, 본문에서 고르면 `설문조사` 가 뽑혔다.
+     *
+     * 본문이 문단만큼 길면 제목을 먼저 본다. 제목이 `결제 완료` 처럼 쓸모없으면
+     * 걸러져서 빈 값이 되고 그때 본문으로 되돌아오므로, 잃는 경우가 없다.
+     */
+    private fun pickName(title: String, text: String): String =
+        if (text.length > 120) pickMerchant(title).ifBlank { pickMerchant(text) }
+        else pickMerchant(text).ifBlank { pickMerchant(title) }
+
     private fun pickMerchant(src: String): String {
         val cleaned = MONEY.replace(flat(src), " ")
             // "국민(1234)", "신한(9012)" 은 카드지 가맹점이 아니다. 괄호만 지우면
