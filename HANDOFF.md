@@ -237,7 +237,11 @@ cd "$SP" && ./gradlew testDebugUnitTest
 
 12. **디자인 토큰 밖의 값을 화면 코드에 쓰지 않는다.**
     - 색 → `ui/Charts.kt` 팔레트와 `CatColor`
-    - 글자 크기 → `ui/Type.kt` 의 `T.Display/Amount/Title/Body/Caption` 다섯 단
+    - 글자 크기 → `ui/Type.kt` 의 `T.Display/Amount/Title/Body/Caption` 다섯 단.
+      입력칸만 `TField.Big/Normal/Small` 로 따로 둔다 — 손으로 치는 자리는 커서가
+      보여야 해서 같은 위계의 읽기 글자보다 한 치수 크다. 그 차이를 `T` 에 섞으면
+      다섯 단이 여덟 단이 된다. **화면 코드에 날 `sp` 값이 하나라도 있으면 위반이다**
+      (`grep -rn "[0-9]\+\.sp" app/src/main/java/com/pushledger/ui/ | grep -v Type.kt`).
     - 글꼴 → `ui/Type.kt` 의 `Pixel` (MainActivity 에서 `LocalTextStyle` 에 한 번만 건다)
     - 도트 크기·간격 → `ui/Dots.kt` 의 `DOT` / `DOT_GAP`
     - 모서리 → 배지 4dp · 안쪽 10dp · 카드 16dp

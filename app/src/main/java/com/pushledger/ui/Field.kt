@@ -80,7 +80,7 @@ fun Field(
 
     Column(modifier) {
         if (label.isNotBlank()) {
-            Text2(label, 11.sp, if (focused) Accent else Sub, FontWeight.Medium)
+            Text2(label, T.Caption, if (focused) Accent else Sub, FontWeight.Medium)
             Spacer(Modifier.height(5.dp))
         }
 
@@ -102,7 +102,7 @@ fun Field(
                 if (alignEnd) Alignment.CenterEnd else Alignment.CenterStart
             ) {
                 if (value.isEmpty() && placeholder.isNotBlank()) {
-                    Text2(placeholder, if (big) 17.sp else 14.sp, Sub.copy(alpha = 0.7f))
+                    Text2(placeholder, if (big) TField.Big else TField.Normal, Sub.copy(alpha = 0.7f))
                 }
                 BasicTextField(
                     value = value,
@@ -112,7 +112,7 @@ fun Field(
                     // 화면에서 제일 자주 보는 글자가 혼자 딴 얼굴이 된다.
                     textStyle = TextStyle(
                         fontFamily = Pixel,
-                        fontSize = if (big) 17.sp else 14.sp,
+                        fontSize = if (big) TField.Big else TField.Normal,
                         fontWeight = if (big) FontWeight.Bold else FontWeight.Normal,
                         color = Ink,
                         textAlign = if (alignEnd) TextAlign.End else TextAlign.Start
@@ -128,7 +128,7 @@ fun Field(
 
             if (suffix.isNotBlank()) {
                 Spacer(Modifier.width(6.dp))
-                Text2(suffix, if (big) 14.sp else 12.sp, Sub)
+                Text2(suffix, if (big) TField.Normal else TField.Small, Sub)
             }
             if (trailing != null) {
                 Spacer(Modifier.width(6.dp))
@@ -138,7 +138,7 @@ fun Field(
 
         if (hint.isNotBlank()) {
             Spacer(Modifier.height(5.dp))
-            Text2(hint, 11.sp, if (error) Warn else hintColor)
+            Text2(hint, T.Caption, if (error) Warn else hintColor)
         }
     }
 }
