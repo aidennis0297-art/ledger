@@ -103,9 +103,12 @@ fun BudgetScreen() {
                     Store.saveConfig(cfg.copy(monthlyBudget = it))
                 }
                 Spacer(Modifier.height(10.dp))
+                // 고정지출도 저축과 똑같이 임자가 있는 돈이라 같이 잠근다.
+                // 아래 줄에 "고정 58만" 이라고 적어 두고 띠에서는 안 잠그면, 글자와
+                // 그림이 서로 다른 말을 한다. 홈의 띠도 같은 기준으로 그린다.
                 BudgetBar(
                     spent, cfg.monthlyBudget + income,
-                    reserved = Stats.investGoal(cfg), animate = true
+                    reserved = Stats.investGoal(cfg) + fixedSum, animate = true
                 )
                 Spacer(Modifier.height(6.dp))
                 Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {

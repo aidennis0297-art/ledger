@@ -103,10 +103,26 @@ fun HomeScreen(goInbox: () -> Unit, goStats: () -> Unit, goSettings: () -> Unit)
                     // 왼쪽에서 자라는 지출이 그 초록에 닿으면 저축을 깨야 하는 달이다.
                     // 알갱이 한 줄이다. 여기서 도트를 여러 줄로 쌓으면 화면에서
                     // 제일 먼저 눈이 가는 자리를 띠가 통째로 차지한다.
-                    BudgetBar(spent, cfg.monthlyBudget, reserved = savingGoal, animate = true)
+                    // 고정지출도 저축과 똑같이 임자가 있는 돈이다. 저축만 잠그고 월세를
+                    // 안 잠그면, 월예산 100만·월세 50만·소비 20만일 때 띠는 70만이 남은
+                    // 것처럼 보이지만 실제로 쓸 수 있는 돈은 20만이다. 하루 한도
+                    // (`Stats.dailyBudget`)는 이미 고정지출 전액을 빼고 계산하는데
+                    // 이 띠만 안 빼고 있어서, 한 화면의 두 그림이 서로 다른 말을 했다.
+                    //
+                    // 계획 금액 전액을 잠근다. 실제로 나간 고정지출은 `Stats.active()` 가
+                    // 걸러 `spent` 에도 안 들어가므로, 여기서 전액을 빼야 양쪽이 맞는다.
+                    val fixedPlan = Stats.fixedTotal(cfg)
+                    BudgetBar(
+                        spent, cfg.monthlyBudget,
+                        reserved = savingGoal + fixedPlan, animate = true
+                    )
                     Spacer(Modifier.height(6.dp))
                     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        Text("${won(spent)} / ${won(cfg.monthlyBudget)}", fontSize = T.Body, color = Sub)
+                        Text(
+                            "${won(spent)} / ${won(cfg.monthlyBudget)}" +
+                                if (fixedPlan > 0L) " · 고정 ${wonShort(fixedPlan)} 잠김" else "",
+                            fontSize = T.Body, color = Sub
+                        )
                         if (savingGoal > 0L) {
                             Text(
                                 if (cfg.budgetExcludesSaving) "저축 제외됨" else "저축 포함",
