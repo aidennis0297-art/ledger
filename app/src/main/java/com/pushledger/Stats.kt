@@ -9,6 +9,8 @@ import java.time.YearMonth
  * - 지출 집계([active]): 취소 거래, 투자([Txn.isInvestment]), 고정지출 실행건([by]=="fixed") 제외.
  * - 투자/저축 집계([investTotal]): 금융 내 투자/저축 및 by=="invest" 거래로 별도 집계.
  * - 수입 집계([incomeTotal]): [Cat.INCOME] 거래로 별도 집계하여 가용 예산 풀에 가산.
+ *   **다만 입금 알림은 거래로 자동 기록하지 않는다**(HANDOFF 불변식 14). 그래서 이 값은
+ *   사용자가 손으로 넣었거나 분류를 직접 수입으로 정해 둔 건에서만 나온다.
  */
 object Stats {
 

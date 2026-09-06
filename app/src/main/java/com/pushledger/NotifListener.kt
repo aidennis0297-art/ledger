@@ -119,7 +119,14 @@ class NotifListener : NotificationListenerService() {
                 val cat = when {
                     isFixed -> Cat.of(matchedFixed?.category)
                     remembered != null -> remembered.first
-                    else -> Parser.guessCat(out.merchant)
+                    // 파서가 '나간 돈' 이라고 판정한 건이다. 그런데 가맹점 이름에 `환급`·
+                    // `캐시백`·`배당` 같은 낱말이 있으면 `guessCat` 이 수입을 돌려준다.
+                    // 그대로 두면 나간 돈이 수입으로 적히고, 그 건은 소비 집계에서 빠지면서
+                    // (Cat.INCOME 은 isExpense 가 거짓) 동시에 예산에 더해진다 — 한 건으로
+                    // 예산이 두 번 흔들린다. 이름이 뭐라 하든 지출은 지출이다.
+                    else -> Parser.guessCat(out.merchant).let {
+                        if (it == Cat.INCOME) Cat.ETC else it
+                    }
                 }
                 val subCat = when {
                     isFixed -> "고정지출"

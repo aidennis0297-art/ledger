@@ -88,6 +88,18 @@ class ReviewWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             r.onSuccess { list ->
                 val fixes = list.mapNotNull { s ->
                     val before = batch.getOrNull(s.i - 1) ?: return@mapNotNull null
+
+                    // 이미 기록된 지출을 수입으로 바꾸자는 제안은 버린다(불변식 14).
+                    //
+                    // 이 앱은 수입을 기록하지 않는데, 여기는 그 규칙을 지나지 않는 세 번째
+                    // 길이었다. 적용하면 그 거래가 `Stats.active()` 에서 빠지고
+                    // (`Cat.INCOME.isExpense` 가 거짓) 동시에 `incomeTotal` 로 들어가
+                    // 하루 예산에 더해진다 — **한 번 눌러서 예산이 두 번 흔들린다.**
+                    // 사용자가 그 가맹점을 수입으로 정해 뒀다면 그건 사용자 뜻이라 통과시킨다.
+                    if (!s.drop && s.category.isNotBlank() && Cat.of(s.category) == Cat.INCOME &&
+                        Store.recallCategory(before.merchant) == null
+                    ) return@mapNotNull null
+
                     val after = if (s.drop) before else before.copy(
                         merchant = s.merchant.ifBlank { before.merchant },
                         category = (if (s.category.isBlank()) before.cat else Cat.of(s.category)).name,
