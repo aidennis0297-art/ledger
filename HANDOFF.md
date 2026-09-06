@@ -489,7 +489,12 @@ grep -rn "saveConfig" app/src/main
 grep -rn "\.delete()\|deleteRecursively" app/src/main
 # 거래에 수입이 붙을 수 있는 자리 (불변식 14)
 grep -rn "Cat.INCOME" app/src/main
+# 알림함에서 상태를 바꾸는 자리 (17곳) — 하나하나 되돌리기가 짝을 이뤄야 한다(불변식 10)
+grep -n "Store\.\(setRawState\|ignoreAllFrom\|restoreAll\|restoreAllFrom\|deleteTxnByDedup\)" app/src/main/java/com/pushledger/ui/Inbox.kt
 ```
+
+불변식 10은 2026-09-06 에 이 방법으로 훑어 짝이 다 맞는 것을 확인했다. 일괄 처리
+두 개(AI 일괄 기록·일괄 무시)에도 일괄 되돌리기가 붙어 있다.
 
 이 넷을 돌려 보면 `Charts.kt`·`StatsScreen.kt`·`AiScreen.kt`·`MainActivity.kt` 는
 거래를 아예 안 건드린다는 것도 같이 보인다. **"안 열어 본 파일이 있다" 는 걱정은
