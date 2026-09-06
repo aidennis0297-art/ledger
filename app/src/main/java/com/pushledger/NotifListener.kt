@@ -135,7 +135,9 @@ class NotifListener : NotificationListenerService() {
                 }
 
                 // 예정으로 미리 넣어 둔 같은 고정지출이 있으면 지우고 이 건으로 대체한다.
-                if (isFixed && matchedFixed != null) {
+                // `isFixed` 가 곧 `matchedFixed != null` 이라 둘을 같이 보면 이중 검사다.
+                // null 검사만 남기면 스마트 캐스트가 걸려 `?.` 도 필요 없다.
+                if (matchedFixed != null) {
                     Store.replaceAutoFixed(matchedFixed.name, at)
                 }
 
