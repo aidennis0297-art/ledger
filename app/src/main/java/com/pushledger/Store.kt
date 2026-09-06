@@ -879,7 +879,22 @@ object Store {
 
     /** 기억해 둔 분류. 없으면 null 이고, 그때만 규칙이 짐작한다. */
     fun recallCategory(merchant: String): Pair<Cat, String>? {
-        val v = config.value.catMemory[Merchant.key(merchant)] ?: return null
+        val mem = config.value.catMemory
+        val k = Merchant.key(merchant)
+        // 정확히 같은 열쇠가 먼저다. 대부분 여기서 끝난다.
+        val v = mem[k]
+        // 못 찾으면 품기로 한 번 더 본다.
+        //
+        // 열쇠는 그때그때의 가맹점 추출 규칙에서 나온다. 규칙을 손보면 같은 가게의
+        // 열쇠가 달라지고, **사용자가 고쳐 둔 분류가 조용히 안 맞게 된다.** 실제로 이
+        // 세션에서 `PC방` 이 `아크PC방` 으로, `완료되었습니다` 가 `한끼통살` 로 바뀌었다.
+        // 불변식 9 는 사용자가 정한 것이 규칙보다 우선한다고 하는데, 열쇠가 발밑에서
+        // 움직이면 그 약속이 깨진다.
+        //
+        // 품기 판정은 `Merchant.same` 을 그대로 쓴다. 세 글자 아래로는 품기를 안 보므로
+        // 고정지출 이름이 "KT" 일 때 "KTX 예매" 를 삼키는 일도 같이 막힌다.
+            ?: mem.entries.firstOrNull { Merchant.same(it.key, k) }?.value
+            ?: return null
         val p = v.split("|")
         return Cat.of(p.getOrNull(0)) to p.getOrNull(1).orEmpty()
     }
