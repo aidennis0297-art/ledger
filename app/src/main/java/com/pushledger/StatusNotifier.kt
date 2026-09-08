@@ -144,18 +144,28 @@ object StatusNotifier {
      */
     fun diagnose(context: Context): String = why(context) + "\n" + facing()
 
+    /** 지금 이 순간의 예산 숫자. 저장소에서 읽어 [facingLine] 에 넘긴다. */
+    private fun facing(): String =
+        facingLine(Store.config.value, Store.readMonth(YearMonth.now()))
+
     /**
-     * 지금 이 순간의 예산 숫자. 위젯·상태창과 같은 함수를 지난다(불변식 16).
-     * 고정지출이 실제로 빠지는지 눈으로 확인할 수 있게 뺄셈을 통째로 적는다.
+     * 위젯·상태창이 그리는 예산 숫자를 한 줄로 적는다. 같은 함수를 지난다(불변식 16).
+     * 고정지출이 실제로 빠지는지 눈으로 확인할 수 있게 **뺄셈을 통째로** 적는다.
+     *
+     * 저장소를 안 읽고 인자만 받는다. 이 줄은 계산이 맞는지 사람이 확인하는 도구라
+     * 이게 틀리면 확인 도구가 거짓말을 하게 되는데, 저장소를 안에서 열면 테스트가
+     * 못 덮는다. 날짜도 인자로 받는다 — 하루 한도는 남은 날수로 나눈 값이라
+     * 오늘이 며칠이냐에 따라 달라진다.
      */
-    private fun facing(): String {
-        val cfg = Store.config.value
+    fun facingLine(
+        cfg: Config,
+        month: List<Txn>,
+        today: java.time.LocalDate = java.time.LocalDate.now()
+    ): String {
         if (cfg.monthlyBudget == 0L) return "월 예산이 없어 숫자를 못 만듭니다"
-        val month = Store.readMonth(YearMonth.now())
-        val daily = Stats.dailyBudget(cfg, month)
         return "월 ${won(cfg.monthlyBudget)} − 고정 ${won(Stats.fixedTotal(cfg))}" +
             " → 이달 ${won(Stats.monthRemain(cfg, month))}" +
-            " · 오늘 한도 ${won(daily.dailyLimit)}"
+            " · 오늘 한도 ${won(Stats.dailyBudget(cfg, month, today).dailyLimit)}"
     }
 
     private fun why(context: Context): String {

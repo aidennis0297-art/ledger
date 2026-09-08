@@ -14,7 +14,7 @@ README 에 있는 내용은 여기서 반복하지 않는다. 이 문서는 **�
 
 ## 1. 현재 상태 (2026-09-08 실측)
 
-소스 32개 파일 + 테스트 8개 파일. **유닛 테스트 103개 전부 통과.**
+소스 32개 파일 + 테스트 8개 파일. **유닛 테스트 105개 전부 통과.**
 `assembleDebug` · `assembleRelease` 성공, **컴파일 경고 0개.** APK 13.5MB.
 경고가 하나라도 뜨면 그건 새로 생긴 것이니 그 자리를 볼 것.
 
@@ -28,7 +28,7 @@ grep -rho '@Test' app/src/test | wc -l
 
 | 영역 | 파일 |
 |---|---|
-| 도메인 | `Store.kt` 991 · `Coach.kt` 531 · `Nvidia.kt` 530 · `Stats.kt` 477 · `Parser.kt` 393 · `MainActivity.kt` 331 · `Model.kt` 272 · `DailyWidgetProvider.kt` 245 · `NotifListener.kt` 221 · `AiWorker.kt` 205 · `StatusNotifier.kt` 189 · `Merchant.kt` 125 · `AiReview.kt` 121 · `Hangul.kt` 77 · `AiJob.kt` 58 · `Money.kt` 43 |
+| 도메인 | `Store.kt` 991 · `Coach.kt` 531 · `Nvidia.kt` 530 · `Stats.kt` 477 · `Parser.kt` 393 · `MainActivity.kt` 331 · `Model.kt` 272 · `DailyWidgetProvider.kt` 245 · `NotifListener.kt` 221 · `AiWorker.kt` 205 · `StatusNotifier.kt` 219 · `Merchant.kt` 125 · `AiReview.kt` 121 · `Hangul.kt` 77 · `AiJob.kt` 58 · `Money.kt` 43 |
 | 화면 | `ui/Inbox.kt` 649 · `ui/Ledger.kt` 635 · `ui/Charts.kt` 607 · `ui/Budget.kt` 512 · `ui/Home.kt` 434 · `ui/AiScreen.kt` 397 · `ui/Settings.kt` 393 · `ui/StatsScreen.kt` 386 · `ui/StatsYear.kt` 186 |
 | 디자인 기반 | `ui/Dots.kt` 420 · `ui/Field.kt` 161 · `ui/EmptyState.kt` 104 · `ui/Burst.kt` 82 · `ui/Text.kt` 73 · `ui/Type.kt` 49 · `ui/Money.kt` 53 |
 

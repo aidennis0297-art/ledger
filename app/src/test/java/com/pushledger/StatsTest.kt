@@ -73,6 +73,42 @@ class StatsTest {
         assertEquals(1_120_000L, Stats.monthRemain(cfg, paid))
     }
 
+    /**
+     * 설정에서 "지금 띄워보기" 를 누르면 나오는 줄. 사람이 계산을 확인하는 도구라
+     * 이게 틀리면 확인 도구가 거짓말을 한다 — 그래서 숫자를 통째로 못 박는다.
+     *
+     * 위젯·상태창이 이 줄과 같은 함수를 지나므로(불변식 16), 여기가 맞는데 화면이
+     * 다르면 그건 계산이 아니라 안 다시 그려진 그림이다.
+     */
+    @Test fun 확인용_줄은_고정지출을_뺀_숫자를_적는다() {
+        val cfg = Config(
+            monthlyBudget = 1_500_000L,
+            fixed = listOf(Fixed(id = "f1", name = "월세", amount = 580_000L, day = 25))
+        )
+        val month = listOf(txn("2026-09-05T12:00:00", 300_000L))
+        val today = java.time.LocalDate.of(2026, 9, 8)
+
+        // 150만 − 58만 − 소비 30만 = 62만. 남은 23일로 나눠 하루 26,950원.
+        assertEquals(
+            "월 150만원 − 고정 58만원 → 이달 62만원 · 오늘 한도 2만 6950원",
+            StatusNotifier.facingLine(cfg, month, today)
+        )
+
+        // 고정지출이 없으면 그만큼 늘어야 한다 — 하루 한도가 2만 6950 에서 5만 2170 으로
+        // 거의 배가 된다. 이 대비가 없으면 뺄셈이 죽어도 테스트가 모른다.
+        assertEquals(
+            "월 150만원 − 고정 0원 → 이달 120만원 · 오늘 한도 5만 2170원",
+            StatusNotifier.facingLine(cfg.copy(fixed = emptyList()), month, today)
+        )
+    }
+
+    @Test fun 예산이_없으면_확인용_줄은_숫자를_안_지어낸다() {
+        assertEquals(
+            "월 예산이 없어 숫자를 못 만듭니다",
+            StatusNotifier.facingLine(Config(), emptyList())
+        )
+    }
+
     @Test fun 월별_합계는_거래가_없는_달도_한_칸씩_남긴다() {
         val m = Stats.byMonth(
             listOf(
