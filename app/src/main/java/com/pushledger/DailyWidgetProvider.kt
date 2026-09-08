@@ -81,6 +81,23 @@ object WidgetPlanner {
  */
 class DailyWidgetProvider : AppWidgetProvider() {
 
+    /**
+     * 새 APK 를 깔거나 폰을 재시작하면 시스템이 상주 알림을 지우고, 위젯은
+     * 마지막으로 그려진 그림 그대로 남는다. 그래서 계산을 고쳐도 앱을 다시 열기
+     * 전까지는 사람 눈에 옛 숫자가 그대로 보인다 — 고친 적이 없다고 읽힌다.
+     *
+     * 새 빌드를 자주 까는 앱이라 실제로 사람을 헷갈리게 한 자리다.
+     */
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED ||
+            intent.action == Intent.ACTION_BOOT_COMPLETED
+        ) {
+            Store.ensure(context)
+            StatusNotifier.update(context)
+        }
+    }
+
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         // 위젯은 앱을 한 번도 열지 않은 상태에서도 홈 화면에 놓일 수 있다.
         // 저장소를 열지 않고 읽으면 그 자리에서 죽고, 런처에는 빈 칸만 남는다.
