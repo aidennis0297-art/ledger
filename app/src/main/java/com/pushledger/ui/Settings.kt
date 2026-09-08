@@ -362,6 +362,31 @@ fun SettingsScreen() {
             }
         }
 
+        // 언제 깐 앱인지 앱이 스스로 말한다.
+        //
+        // 새 APK 를 자주 건네는데 파일 이름은 늘 같다. 그래서 옛 빌드를 깔아 놓고
+        // 새 빌드라고 여긴 적이 실제로 있었고, 그때 사용자는 고쳐 놓은 계산이
+        // 안 고쳐졌다고 읽었다. 버전 이름은 손으로 올려야 해서 늘 낡는다.
+        // 안드로이드가 이미 알고 있는 설치 시각이 손댈 것도 없고 틀릴 일도 없다.
+        item {
+            val installedAt = remember {
+                runCatching {
+                    val t = ctx.packageManager
+                        .getPackageInfo(ctx.packageName, 0).lastUpdateTime
+                    java.time.Instant.ofEpochMilli(t)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("M월 d일 HH:mm"))
+                }.getOrDefault("")
+            }
+            if (installedAt.isNotBlank()) {
+                Text(
+                    "이 빌드를 $installedAt 에 설치했습니다",
+                    fontSize = T.Caption, color = Sub,
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                )
+            }
+        }
+
         item { Spacer(Modifier.height(30.dp)) }
     }
 }

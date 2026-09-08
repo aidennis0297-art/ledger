@@ -29,7 +29,7 @@ grep -rho '@Test' app/src/test | wc -l
 | 영역 | 파일 |
 |---|---|
 | 도메인 | `Store.kt` 991 · `Coach.kt` 531 · `Nvidia.kt` 530 · `Stats.kt` 477 · `Parser.kt` 393 · `MainActivity.kt` 331 · `Model.kt` 272 · `DailyWidgetProvider.kt` 245 · `NotifListener.kt` 221 · `AiWorker.kt` 205 · `StatusNotifier.kt` 219 · `Merchant.kt` 125 · `AiReview.kt` 121 · `Hangul.kt` 77 · `AiJob.kt` 58 · `Money.kt` 43 |
-| 화면 | `ui/Inbox.kt` 649 · `ui/Ledger.kt` 635 · `ui/Charts.kt` 607 · `ui/Budget.kt` 512 · `ui/Home.kt` 434 · `ui/AiScreen.kt` 397 · `ui/Settings.kt` 393 · `ui/StatsScreen.kt` 386 · `ui/StatsYear.kt` 186 |
+| 화면 | `ui/Inbox.kt` 649 · `ui/Ledger.kt` 635 · `ui/Charts.kt` 607 · `ui/Budget.kt` 512 · `ui/Home.kt` 434 · `ui/AiScreen.kt` 397 · `ui/Settings.kt` 418 · `ui/StatsScreen.kt` 386 · `ui/StatsYear.kt` 186 |
 | 디자인 기반 | `ui/Dots.kt` 420 · `ui/Field.kt` 161 · `ui/EmptyState.kt` 104 · `ui/Burst.kt` 82 · `ui/Text.kt` 73 · `ui/Type.kt` 49 · `ui/Money.kt` 53 |
 
 ### 실기기에서 확인된 것 (사용자가 폰에서 직접 봤다)
