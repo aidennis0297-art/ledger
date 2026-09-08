@@ -135,10 +135,30 @@ object StatusNotifier {
     }
 
     /**
-     * 상태창에 왜 안 뜨는지 사람이 읽을 수 있게 알려 준다.
-     * 알림은 실패해도 예외를 주지 않아서, 이렇게 물어보지 않으면 원인을 알 길이 없다.
+     * 상태창이 왜 안 뜨는지, 그리고 **지금 무슨 숫자를 그리고 있는지** 알려 준다.
+     *
+     * 알림은 실패해도 예외를 주지 않아서, 물어보지 않으면 원인을 알 길이 없다.
+     * 숫자를 같이 붙이는 이유는 따로 있다 — 계산을 고쳐도 위젯과 상태창은 스스로
+     * 다시 그리지 않아서(§5), 화면만 봐서는 계산이 틀린 건지 그림이 낡은 건지
+     * 가릴 수 없다. 여기서 나오는 숫자는 방금 계산한 값이라 그 둘을 가른다.
      */
-    fun diagnose(context: Context): String {
+    fun diagnose(context: Context): String = why(context) + "\n" + facing()
+
+    /**
+     * 지금 이 순간의 예산 숫자. 위젯·상태창과 같은 함수를 지난다(불변식 16).
+     * 고정지출이 실제로 빠지는지 눈으로 확인할 수 있게 뺄셈을 통째로 적는다.
+     */
+    private fun facing(): String {
+        val cfg = Store.config.value
+        if (cfg.monthlyBudget == 0L) return "월 예산이 없어 숫자를 못 만듭니다"
+        val month = Store.readMonth(YearMonth.now())
+        val daily = Stats.dailyBudget(cfg, month)
+        return "월 ${won(cfg.monthlyBudget)} − 고정 ${won(Stats.fixedTotal(cfg))}" +
+            " → 이달 ${won(Stats.monthRemain(cfg, month))}" +
+            " · 오늘 한도 ${won(daily.dailyLimit)}"
+    }
+
+    private fun why(context: Context): String {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val appOn = androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
         if (!appOn) return "이 앱의 알림이 시스템에서 꺼져 있습니다"
