@@ -377,6 +377,23 @@ cd "$SP" && ./gradlew testDebugUnitTest
     알아야 하고, 기록할지 말지는 호출자가 정하는 것이 맞다.
     **사용자가 그 가맹점을 수입으로 정해 둔 경우(`catMemory`)는 예외다** — 불변식 9.
 
+16. **예산 숫자는 홈·위젯·상태창 세 곳이 같은 함수를 지난다.**
+    `Stats.dailyBudget()` 과 `Stats.monthRemain()` 이 그 둘이고, 화면 코드에서
+    `cfg.monthlyBudget` 으로 직접 빼서 만들지 않는다. 한 곳이 자기 산수를 시작하면
+    나머지 둘과 소리 없이 어긋나고, 사용자는 **눈에 보이는 쪽(위젯·상태창)** 을 믿는다.
+
+    ```bash
+    # 화면·위젯·상태창이 예산 산수를 직접 하는지
+    grep -rn "monthlyBudget *[-+]" app/src/main/java/com/pushledger/{ui,DailyWidgetProvider.kt,StatusNotifier.kt}
+    ```
+
+    지금 걸리는 것은 `ui/Budget.kt` 한 줄뿐이고 그건 정상이다 — 예산 띠에 넘기는
+    총량이라 `reserved` 로 고정지출과 저축을 같이 잠근다. **새로 걸리는 줄이 생기면
+    그게 다음 어긋남이다.**
+
+    **고쳐도 위젯과 상태창은 스스로 안 그려진다.** §5 "위젯과 상태창은 스스로 안
+    고쳐진다" 를 볼 것. 계산이 맞는데 화면이 틀린 것처럼 보이는 일이 실제로 있었다.
+
 ---
 
 ## 4. 밟으면 시간 나가는 함정
