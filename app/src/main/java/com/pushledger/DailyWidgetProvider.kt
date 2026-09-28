@@ -138,7 +138,7 @@ class DailyWidgetProvider : AppWidgetProvider() {
         private fun updateWidgetInner(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val cfg = Store.config.value
             val ym = YearMonth.now()
-            val monthTxns = Store.readMonth(ym)
+            val monthTxns = if (Store.month.value.isNotEmpty()) Store.month.value else Store.readMonth(ym)
             val daily = Stats.dailyBudget(cfg, monthTxns)
             val remain = Stats.monthRemain(cfg, monthTxns)
 

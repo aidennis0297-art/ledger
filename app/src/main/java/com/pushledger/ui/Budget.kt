@@ -27,6 +27,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -409,8 +410,6 @@ fun MoneyField(
     var text by remember { mutableStateOf(if (value == 0L) "" else (value / 10_000L).toString()) }
     var focused by remember { mutableStateOf(false) }
 
-    // 글자를 칠 때마다 저장하면 설정이 바뀌고, 그 바람에 화면이 다시 그려지면서
-    // 입력창이 닫히거나 커서가 튄다. 편집이 끝난 순간에만 저장한다.
     fun commit() = onSave((text.toLongOrNull() ?: 0L) * 10_000L)
 
     // 편집 중이 아닐 때만 바깥 값을 따라간다.
@@ -418,10 +417,23 @@ fun MoneyField(
         if (!focused) text = if (value == 0L) "" else (value / 10_000L).toString()
     }
 
+    DisposableEffect(Unit) {
+        onDispose { commit() }
+    }
+
     val v = (text.toLongOrNull() ?: 0L) * 10_000L
     Field(
         value = text,
-        onValueChange = { input -> text = input.filter { it.isDigit() }.take(6) },
+        onValueChange = { input ->
+            val digits = input.filter { it.isDigit() }.take(6)
+            text = digits
+            val parsed = digits.toLongOrNull()
+            if (parsed != null) {
+                onSave(parsed * 10_000L)
+            } else if (digits.isEmpty()) {
+                onSave(0L)
+            }
+        },
         label = label,
         placeholder = "0",
         suffix = "만원",
@@ -433,8 +445,6 @@ fun MoneyField(
             imeAction = ImeAction.Done
         ),
         keyboardActions = KeyboardActions(onDone = { commit() }),
-        // 단위가 붙은 숫자는 오른쪽 끝에 붙어 있어야 한다. 왼쪽 정렬이면 자릿수가
-        // 늘 때마다 숫자와 단위 사이가 벌어져서 둘이 한 덩어리로 읽히지 않는다.
         alignEnd = true,
         modifier = Modifier.fillMaxWidth().onFocusChanged { st ->
             if (focused && !st.isFocused) commit()

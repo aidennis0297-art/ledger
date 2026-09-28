@@ -280,7 +280,7 @@ object Stats {
      * 주석에 적혀 있다.
      */
     fun monthRemain(cfg: Config, month: List<Txn>): Long =
-        cfg.monthlyBudget - fixedTotal(cfg) - total(month) -
+        cfg.monthlyBudget + incomeTotal(month) - fixedTotal(cfg) - total(month) -
             (if (cfg.budgetExcludesSaving) investGoal(cfg) else 0L)
 
     /** 이번 달 고정지출 합계. */

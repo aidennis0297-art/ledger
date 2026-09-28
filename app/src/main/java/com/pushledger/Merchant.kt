@@ -82,8 +82,24 @@ object Merchant {
         "kiwoom" to "키움증권",
         "키움증권" to "키움증권",
         "한국장학재단" to "한국장학재단",
-        "aliexpress" to "알리익스프레스"
+        "aliexpress" to "알리익스프레스",
+        "kb카드" to "KB국민카드",
+        "국민카드" to "KB국민카드",
+        "신한카드" to "신한카드",
+        "현대카드" to "현대카드",
+        "삼성카드" to "삼성카드",
+        "우리카드" to "우리카드",
+        "하나카드" to "하나카드",
+        "롯데카드" to "롯데카드",
+        "bc카드" to "BC카드",
+        "비씨카드" to "BC카드",
+        "농협카드" to "NH농협카드"
     )
+
+    fun aliasOf(raw: String): String? {
+        val lower = raw.lowercase()
+        return ALIAS.firstOrNull { lower.contains(it.first.lowercase()) }?.second
+    }
 
     /** 화면과 기록에 남길 이름. */
     fun clean(raw: String): String {
@@ -91,15 +107,17 @@ object Merchant {
         if (s.isEmpty()) return s
 
         s = PREFIX.replace(s, "")
+        s = s.trimEnd(' ', '(', ')', '[', ']', '{', '}', '\'', '"')
         s = SUFFIX.replace(s, "")
+        s = s.trimEnd(' ', '(', ')', '[', ']', '{', '}', '\'', '"')
         var d: String
         do { d = s; s = DOTTY.replace(s, "") } while (s != d)
         // 꼬리표는 겹쳐 붙는다. "SKT 통신요금 2026.08 3회차" 같은 것을 한 겹씩 벗긴다.
         var before: String
         do { before = s; s = BILLING.replace(s, "") } while (s != before)
+        s = s.trim(' ', '(', ')', '[', ']', '{', '}', '\'', '"')
 
-        val lower = s.lowercase()
-        ALIAS.firstOrNull { lower.contains(it.first.lowercase()) }?.let { return it.second }
+        aliasOf(s)?.let { return it }
 
         return s.replace(Regex("""\s+"""), " ").trim().ifEmpty { raw.trim() }
     }

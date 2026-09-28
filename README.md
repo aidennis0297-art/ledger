@@ -317,7 +317,7 @@ AI 분석 진행 상황은 **어느 탭에 있든 화면 위쪽 띠에 뜬다.**
 
 ## AI 에게 주는 틀
 
-모델은 `deepseek-ai/deepseek-v4-flash-0731`, 엔드포인트는
+모델은 `deepseek-ai/deepseek-v4.1-flash`, 엔드포인트는
 `https://integrate.api.nvidia.com/v1/chat/completions`, 응답은 스트리밍 없이 한 번에 받는다.
 
 AI 를 쓰는 자리는 둘인데 **성격이 정반대라 호출 설정도 갈라 뒀다** (`Nvidia.call`).

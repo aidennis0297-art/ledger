@@ -34,7 +34,7 @@ grep -rho '@Test' app/src/test | wc -l
 
 ### 실기기에서 확인된 것 (사용자가 폰에서 직접 봤다)
 
-- **NVIDIA API 실제 호출.** 모델 `deepseek-ai/deepseek-v4-flash-0731`. 동작한다.
+- **NVIDIA API 실제 호출.** 모델 `deepseek-ai/deepseek-v4.1-flash`. 동작한다.
   AI 기능 전체(알림 분석·기록 검토·리포트)가 걸려 있던 단 하나가 풀렸다.
 - **상태창 알림.** 실제로 뜬다.
 - **한글 픽셀 폰트.** 실기기에서 어떻게 보이는지 확인했다.

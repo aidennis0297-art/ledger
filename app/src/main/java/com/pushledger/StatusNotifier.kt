@@ -53,7 +53,8 @@ object StatusNotifier {
             return
         }
 
-        val monthTxns = Store.readMonth(YearMonth.now())
+        val ym = YearMonth.now()
+        val monthTxns = if (Store.month.value.isNotEmpty()) Store.month.value else Store.readMonth(ym)
         val daily = Stats.dailyBudget(cfg, monthTxns)
         val remain = Stats.monthRemain(cfg, monthTxns)
 
@@ -78,16 +79,15 @@ object StatusNotifier {
 
         val noBudget = cfg.monthlyBudget == 0L
 
-        // 상태창은 스치듯 보는 자리다. 상태 한 낱말과 숫자 한 줄이면 충분하고,
-        // 그 이상은 알림 줄에서 잘리거나 읽는 걸 방해한다.
+        // 상태창은 스치듯 보는 자리다. 오늘 남은/초과 금액과 오늘 지출/한도, 이달 잔여를 한눈에 보여준다.
         val plainTitle = when {
             noBudget -> "예산 미설정"
-            daily.isSuccess -> "적정"
-            else -> "초과"
+            daily.isSuccess -> "오늘 ${won(daily.remaining)} 남음"
+            else -> "오늘 ${won(-daily.remaining)} 초과"
         }
         val plainBody = if (noBudget) "예산 탭에서 월 예산을 정해 주세요"
-        else "오늘 ${won(daily.todaySpent)} / ${won(daily.dailyLimit)} · 월 " +
-            (if (remain >= 0) monthShort(remain) else "-" + monthShort(-remain))
+        else "오늘 지출 ${won(daily.todaySpent)} / 한도 ${won(daily.dailyLimit)} · 이달 " +
+            (if (remain >= 0) monthShort(remain) + " 남음" else monthShort(-remain) + " 초과")
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             // 적응형 아이콘(mipmap)을 여기 쓰면 Android 8 이상에서 알림이 통째로 무시된다.

@@ -32,8 +32,8 @@ object Nvidia {
     private const val PREFS = "pushledger_nvidia"
     private const val KEY_API_KEY = "api_key"
     private const val URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-    /** 사용자가 지정한 모델. 다른 모델로 바꾸면 계정에서 안 잡혀 404 가 난다. */
-    const val MODEL = "deepseek-ai/deepseek-v4-flash-0731"
+    /** 사용자가 지정한 모델. */
+    const val MODEL = "deepseek-ai/deepseek-v4.1-flash"
 
     private val json = Json { ignoreUnknownKeys = true }
     private val http = OkHttpClient.Builder()

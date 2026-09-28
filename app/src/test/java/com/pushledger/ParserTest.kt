@@ -732,4 +732,77 @@ class ParserTest {
         assertEquals(Cat.LEISURE, Parser.guessCat(e.merchant))
         assertEquals("교통/차량", Parser.guessSubCat(e.merchant, Cat.LEISURE))
     }
+
+    @Test fun 캐시백_알림은_지출로_잡지_않는다() {
+        val r1 = Parser.parse(
+            "500원 캐시백 🎉",
+            "13,800원 결제 | 전국고속버스운송사업조합 잔액 235,849원(토스뱅크 체크카드)"
+        )
+        assertTrue(r1.toString(), r1 is Parser.Out.None)
+
+        val r2 = Parser.parse("포인트 적립", "토스페이 결제 혜택으로 700원 받았어요")
+        assertTrue(r2.toString(), r2 is Parser.Out.None)
+    }
+
+    @Test fun 토스페이머니_결제는_실제가맹점을_뽑는다() {
+        val r1 = Parser.parse(
+            "73,522원 결제 완료",
+            "토스페이머니 ・ 번개장터 결제한 돈 일부를 돌려받을 수 있어요."
+        )
+        val e1 = r1 as Parser.Out.Expense
+        assertEquals(73_522L, e1.amount)
+        assertEquals("번개장터", e1.merchant)
+
+        val r2 = Parser.parse(
+            "14,447원 결제 완료",
+            "토스페이머니 ・ 주식회사 우아한형제들 결제한 돈 일부를 돌려받을 수 있어요."
+        )
+        val e2 = r2 as Parser.Out.Expense
+        assertEquals(14_447L, e2.amount)
+        assertEquals("배달의민족", Merchant.clean(e2.merchant))
+
+        val r3 = Parser.parse(
+            "7,250원 결제 완료",
+            "토스페이머니 ・ 주식회사 설빙 결제한 돈 일부를 돌려받을 수 있어요."
+        )
+        val e3 = r3 as Parser.Out.Expense
+        assertEquals(7_250L, e3.amount)
+        assertEquals("설빙", Merchant.clean(e3.merchant))
+    }
+
+    @Test fun 닫히지_않은_괄호가_가맹점_이름에_남지_않는다() {
+        val r = Parser.parse("₩4,500 결제 완료", "코레일유통주식회사(")
+        val e = r as Parser.Out.Expense
+        assertEquals(4_500L, e.amount)
+        assertEquals("코레일유통", Merchant.clean(e.merchant))
+    }
+
+    @Test fun 출금_예정_안내는_지출로_잡지_않는다() {
+        val r1 = Parser.parse(
+            "오늘 납부 예정",
+            "오늘 한국장학재단 외 2곳에서 6,999원 출금할 예정이에요. 토스뱅크 통장 (1589)에서 출금돼요."
+        )
+        assertTrue(r1.toString(), r1 is Parser.Out.None)
+
+        val r2 = Parser.parse(
+            "오늘 납부 예정",
+            "오늘 KB국민카드에서 16,462원 출금할 예정이에요. 토스뱅크 통장 (1589)에서 출금돼요."
+        )
+        assertTrue(r2.toString(), r2 is Parser.Out.None)
+
+        val r3 = Parser.parse("카드값 안내", "내일 16,462원이 나갈 예정이에요.")
+        assertTrue(r3.toString(), r3 is Parser.Out.None)
+    }
+
+    @Test fun 카드값_출금은_통장이_아니라_카드사를_가맹점으로_뽑는다() {
+        val r1 = Parser.parse("요금납부 16,462원 출금", "내 토스뱅크 통장 → KB카드출금")
+        val e1 = r1 as Parser.Out.Expense
+        assertEquals(16_462L, e1.amount)
+        assertEquals("KB국민카드", e1.merchant)
+
+        val r2 = Parser.parse("요금납부 2,887원 출금", "내 토스뱅크 통장 → 한국장학재단")
+        val e2 = r2 as Parser.Out.Expense
+        assertEquals(2_887L, e2.amount)
+        assertEquals("한국장학재단", e2.merchant)
+    }
 }

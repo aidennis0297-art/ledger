@@ -261,8 +261,16 @@ private fun ReviewPanel(ym: YearMonth) {
     val reviewing = running && label == ReviewRun.LABEL
     val pending = fixes.filterNot { it.applied }
     val applied = fixes.filter { it.applied }
+    var panelCollapsed by remember { mutableStateOf(false) }
+    var appliedCollapsed by remember { mutableStateOf(true) }
 
-    Panel("AI 기록 검토", Sym.SPARK) {
+    Panel(
+        title = "AI 기록 검토",
+        icon = Sym.SPARK,
+        collapsible = true,
+        collapsed = panelCollapsed,
+        onToggleCollapse = { panelCollapsed = !panelCollapsed }
+    ) {
         if (reviewing) {
             Text(
                 "$msg" + if (total > 0) " ($done/$total)" else "",
@@ -292,29 +300,42 @@ private fun ReviewPanel(ym: YearMonth) {
         }
 
         // 적용한 것도 남겨 둔다. 적용하고 나서야 아니다 싶을 때 되돌릴 자리가 없으면,
-        // 사용자는 적용 버튼 자체를 안 누르게 된다.
+        // 사용자는 적용 버튼 자체를 안 누르게 된다. 접었다 폈다 할 수 있어 목록이 길어져도 깔끔하다.
         if (applied.isNotEmpty()) {
             Spacer(Modifier.height(6.dp))
-            Text("적용함 ${applied.size}건", fontSize = T.Caption, color = Sub)
-            applied.forEach { fx ->
-                Row(
-                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                    Arrangement.SpaceBetween, Alignment.CenterVertically
-                ) {
-                    Box(Modifier.weight(1f)) {
-                        Text(
-                            (if (fx.drop) "지움 · " else "고침 · ") + fx.before.merchant,
-                            fontSize = T.Body, color = Sub, maxLines = 1
-                        )
-                    }
-                    TextButton(onClick = { Store.undoFix(fx.id) }) {
-                        Text("되돌리기", fontSize = T.Caption, color = Accent)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { appliedCollapsed = !appliedCollapsed }
+                    .padding(vertical = 4.dp),
+                Arrangement.SpaceBetween,
+                Alignment.CenterVertically
+            ) {
+                Text("적용함 ${applied.size}건", fontSize = T.Caption, color = Sub, fontWeight = FontWeight.Medium)
+                DotSym(if (appliedCollapsed) Sym.DOWN else Sym.UP, 14.dp, Sub)
+            }
+            if (!appliedCollapsed) {
+                applied.forEach { fx ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        Arrangement.SpaceBetween, Alignment.CenterVertically
+                    ) {
+                        Box(Modifier.weight(1f)) {
+                            Text(
+                                (if (fx.drop) "지움 · " else "고침 · ") + fx.before.merchant,
+                                fontSize = T.Body, color = Sub, maxLines = 1
+                            )
+                        }
+                        TextButton(onClick = { Store.undoFix(fx.id) }) {
+                            Text("되돌리기", fontSize = T.Caption, color = Accent)
+                        }
                     }
                 }
-            }
-            Row(Modifier.fillMaxWidth(), Arrangement.End) {
-                TextButton(onClick = { Store.clearFixes() }) {
-                    Text("목록 비우기", fontSize = T.Caption, color = Sub)
+                Row(Modifier.fillMaxWidth(), Arrangement.End) {
+                    TextButton(onClick = { Store.clearFixes() }) {
+                        Text("목록 비우기", fontSize = T.Caption, color = Sub)
+                    }
                 }
             }
         }

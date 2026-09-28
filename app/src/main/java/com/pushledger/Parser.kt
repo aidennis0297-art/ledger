@@ -140,6 +140,29 @@ object Parser {
     private val NOT_SPEND = Regex("""적립|이벤트|쿠폰|당첨|광고|혜택|잔액조회|미납""")
 
     /**
+     * 출금·납부 예정 안내. 아직 돈이 움직이지 않았다.
+     *
+     * 실제 출금일에 정식 출금 알림이 따로 오기 때문에, 예정 안내를 지출로 잡으면
+     * 같은 금액이 두 번(예정 건 1회 + 실제 출금 1회) 가계부에 들어가 통계가 부푼다.
+     * 실기기 기록에서 한국장학재단 6,999원/2,887원, KB카드 16,462원이 예정 알림으로
+     * 한 번 더 잡혀 가맹점도 "한국장학재단에서", "예정이에요" 로 들어가 있었다.
+     */
+    private val SCHEDULED =
+        Regex("""납부\s*예정|출금할\s*예정|출금\s*예정|결제\s*예정|이체\s*예정|나갈\s*예정|나가는\s*날|소멸\s*예정|청구\s*예정""")
+
+    /**
+     * 캐시백·적립 혜택 알림. 지출이 아니다.
+     *
+     * 토스는 결제 후 "500원 캐시백 🎉 | 13,800원 결제 전국고속버스..." 처럼 결제 금액을
+     * 본문에 품은 캐시백 축하 알림을 따로 보낸다. 본문에 "결제" 가 있어서 [SPEND] 가
+     * 걸리고, 앞쪽의 500원이 먼저 뽑혀 "전국고속버스운송사업조합 500원 지출" 로 둔갑했다.
+     * "포인트 적립 | 토스페이 결제 혜택으로 700원 받았어요" 도 지출 700원(가맹점: 받았어요)으로
+     * 잘못 들어갔다. 혜택 알림은 통째로 지출이 아니다.
+     */
+    private val REWARD =
+        Regex("""캐시백|포인트\s*적립|결제\s*혜택|혜택으로\s*[0-9,]+원\s*받""")
+
+    /**
      * 포인트·캐시가 없어진다는 안내. 돈이 움직이지 않는다.
      *
      * [NOT_SPEND] 로는 못 막는다. 그쪽은 [SPEND] 가 없을 때만 보는데, 이런 안내에는
@@ -198,7 +221,7 @@ object Parser {
     private val DATE_WORD = Regex("""^[0-9]{1,4}(년|월|일|시|분|초)$""")
 
     /** 이렇게 끝나는 토큰은 카드사나 결제수단, 사람 이름이지 가맹점이 아니다. */
-    private val DROP_SUFFIX = Regex("""(카드|페이|은행|뱅크|님|증권)$""")
+    private val DROP_SUFFIX = Regex("""(카드|페이|은행|뱅크|님|증권|머니)$""")
 
     /**
      * 문장 끝맺음으로 끝나는 토큰. 가게 이름이 아니라 말이다.
@@ -209,13 +232,14 @@ object Parser {
      * (`한끼통살`)으로 넘어가 제대로 된 이름이 남는다.
      */
     private val SENTENCE_TAIL =
-        Regex("""(습니다|합니다|됩니다|해요|하세요|주세요|입니다|드립니다)[.!?~]*$""")
+        Regex("""(습니다|합니다|됩니다|해요|하세요|주세요|입니다|드립니다|있어요|받아요)[.!?~]*$""")
     private val DROP_TOKEN = Regex(
         """^(승인|취소|환불|결제|사용|일시불|할부|체크|신용|카드|은행|계좌|알림|발신|""" +
             """[Ww]eb|WEB|님|원|건|누적|잔액|합계|출금|입금|페이|kakaopay|toss|했어요|했습니다|""" +
             // 주문 확인 알림의 항목 이름들. 가게 이름이 아니라 표의 머리글이다.
             // 이것들이 안 걸리면 `주문번호` 가 가맹점 자리에 앉는다.
-            """주문|주문건|주문번호|접수번호|승인번호|일자|완료|상품명|금액|고객님)$"""
+            """주문|주문건|주문번호|접수번호|승인번호|일자|완료|상품명|금액|고객님|""" +
+            """머니|페이머니|토스페이머니|네이버페이머니|카카오페이머니|통장|주식회사|유한회사)$"""
     )
 
     /**
@@ -237,6 +261,15 @@ object Parser {
 
         // 광고는 취소 판정보다도 앞이다. 수신거부 안내에 "알림받기취소" 가 들어 있다.
         if (AD.containsMatchIn(body)) return Out.None("광고 문자 — 돈이 움직이지 않음")
+
+        // 출금/납부 예정 안내는 실제 출금 시 알림이 다시 오므로 중복 기록을 막는다.
+        // 단, 후불교통 정산("교통대금 ... 출금예정")은 카드사가 출금 시 따로 알리지 않으므로 제외한다.
+        if (!body.contains("교통대금") && SCHEDULED.containsMatchIn(body))
+            return Out.None("출금/납부 예정 안내 — 실제 출금 시 기록됨")
+
+        // 캐시백·포인트 적립 알림은 결제액이 본문에 적혀 있어도 지출이 아니다.
+        if (REWARD.containsMatchIn(title) || REWARD.containsMatchIn(body))
+            return Out.None("캐시백·적립 혜택 알림 — 지출 아님")
 
         val cancel = CANCEL.containsMatchIn(body)
         val amount = pickAmount(body) ?: return Out.None("금액 못 찾음")
@@ -361,7 +394,20 @@ object Parser {
         else pickMerchant(text).ifBlank { pickMerchant(title) }
 
     private fun pickMerchant(src: String): String {
+        if (src.contains("→")) {
+            val dest = src.substringAfter("→").trim()
+            if (!dest.contains("통장")) {
+                Merchant.aliasOf(dest)?.let { return it }
+                val sub = pickMerchant(dest)
+                if (sub.isNotBlank()) return sub
+                val cleaned = Merchant.clean(dest)
+                if (cleaned.isNotBlank()) return cleaned
+            }
+        }
+
         val cleaned = MONEY.replace(flat(src), " ")
+            // 토스 결제 시 붙는 안내 문구 제거
+            .replace(Regex("""결제한\s*돈\s*일부를\s*돌려받.*"""), " ")
             // 링크는 통째로 지운다. 안 지우면 도메인이 가장 긴 토큰이라 가맹점 자리에
             // 앉는다. 실기기 기록의 네이버페이 문자 다섯 건이 전부 `naver.me` 였다 —
             // 올리브영·티머니·한끼통살이 한 이름으로 뭉쳐 분류 기억까지 같이 오염된다.
@@ -382,8 +428,8 @@ object Parser {
             // 실기기 기록의 `카카오T일반택시(법인)_3` 과 `카카오T택시_가승인` 이 그 꼴이다.
             // 괄호를 붙여서 지우게 되면서 뒤꼬리가 이름에 눌어붙어 같이 뽑혔다.
             // 문자가 길어 잘릴 때 붙는 말줄임과, 이름을 감싸는 따옴표. 안 떼면
-            // `올리브…` 가 통째로 이름이 되어 `올리브영` 과 다른 가게가 된다.
-            .replace(Regex("""[:\-/,~_▶■※◆●▪·…'"‘’“”]"""), " ")
+            .replace(Regex("""[:\-/,~_▶■※◆●▪·…'"‘’“”()]"""), " ")
+            .replace('[', ' ').replace(']', ' ').replace('{', ' ').replace('}', ' ')
 
         val tokens = cleaned.split(Regex("""\s+"""))
             .map { it.trim() }
@@ -429,7 +475,7 @@ object Parser {
      * 가맹점 이름에 눌어붙은 결제 낱말. 띄어쓰기 없이 붙어 오면 토큰 걸러내기로는 안 빠진다.
      * 카카오의 카드 SMS 파서도 가맹점 이름 끝의 "사용", "일시불", "취소" 를 잘라 낸다.
      */
-    private val GLUED_TAIL = Regex("""(사용|일시불|승인|결제|완료|취소)$""")
+    private val GLUED_TAIL = Regex("""(사용|일시불|승인|결제|완료|취소|출금|납부)$""")
 
     /** 뽑은 이름의 꼬리를 다듬는다. 두 글자 넘게 남을 때만 자른다. */
     private fun trim(name: String): String {

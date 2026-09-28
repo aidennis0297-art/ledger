@@ -92,4 +92,10 @@ class MerchantTest {
         // 이름이 통째로 사라지면 내역에 빈 줄이 남는다.
         assertEquals("(주)", Merchant.clean("(주)"))
     }
+
+    @Test fun 닫히지_않은_괄호와_카드사_출금을_정리한다() {
+        assertEquals("코레일유통", Merchant.clean("코레일유통주식회사("))
+        assertEquals("KB국민카드", Merchant.clean("KB카드출금"))
+        assertEquals("KB국민카드", Merchant.clean("국민카드"))
+    }
 }
