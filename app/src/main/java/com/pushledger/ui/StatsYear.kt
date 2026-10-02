@@ -76,6 +76,15 @@ fun YearStats() {
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp)) {
                 Text(won(total), fontSize = T.Display, fontWeight = FontWeight.Bold, color = Ink)
+                val rentTotal = Stats.rentTotal(list)
+                if (rentTotal > 0 || invested > 0) {
+                    Spacer(Modifier.height(2.dp))
+                    val note = buildList {
+                        if (rentTotal > 0) add("월세 ${wonShort(rentTotal)}원")
+                        if (invested > 0) add("투자·저축 ${wonShort(invested)}원")
+                    }.joinToString(" · ")
+                    Text("$note 제외", fontSize = T.Body, color = Sub)
+                }
                 if (prevTotal > 0) {
                     val diff = total - prevTotal
                     Spacer(Modifier.height(4.dp))

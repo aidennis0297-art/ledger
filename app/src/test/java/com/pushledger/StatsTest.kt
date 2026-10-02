@@ -341,4 +341,69 @@ class StatsTest {
             txn("2026-08-09T09:00:00", amount = 900_000, by = "fixed")
         assertTrue(Stats.outliers(withFixed).isEmpty())
     }
+
+    @Test fun 상태창_숫자_포맷은_만원_단위로_간결하게_표시된다() {
+        assertEquals("1.0", StatusNotifier.fmtMan(10_000L))
+        assertEquals("3.0", StatusNotifier.fmtMan(30_000L))
+        assertEquals("30", StatusNotifier.fmtMan(300_000L))
+        assertEquals("92", StatusNotifier.fmtMan(920_000L))
+        assertEquals("62", StatusNotifier.fmtMan(620_000L))
+        assertEquals("0.0", StatusNotifier.fmtMan(0L))
+        assertEquals("-1.5", StatusNotifier.fmtMan(-15_000L))
+    }
+
+    @Test fun 통계에서_월세는_변동_소비와_그래프에서_제외된다() {
+        val ym = YearMonth.of(2026, 9)
+        val txns = listOf(
+            txn("2026-09-05T12:00:00", 15_000L),
+            Txn(
+                id = "rent", amount = 580_000L, merchant = "월세",
+                category = Cat.HOUSING.name, subCategory = "월세",
+                at = "2026-09-19T09:13:00", by = "rule"
+            ),
+            txn("2026-09-20T12:00:00", 25_000L)
+        )
+        // 변동 소비 총액에 월세 58만원이 포함되지 않는다
+        assertEquals(40_000L, Stats.total(txns))
+        assertEquals(580_000L, Stats.rentTotal(txns))
+
+        // 일별 그래프에서 19일의 값이 58만원으로 튀지 않는다
+        val days = Stats.byDay(txns, ym)
+        assertEquals(15_000L, days[4])  // 5일
+        assertEquals(0L, days[18])      // 19일 (월세 제외)
+        assertEquals(25_000L, days[19]) // 20일
+
+        // 월세는 튀는 결제(이상치) 분석 대상에서도 제외된다
+        val manyWithRent = (1..8).map { txn("2026-09-%02dT12:00:00".format(it), 10_000L) } +
+            Txn(
+                id = "rent2", amount = 580_000L, merchant = "월세",
+                category = Cat.HOUSING.name, subCategory = "월세",
+                at = "2026-09-19T09:13:00", by = "rule"
+            )
+        assertTrue(Stats.outliers(manyWithRent).isEmpty())
+    }
+
+    @Test fun 월세가_rule이나_manual로_들어와도_예산에서_이중차감되지_않는다() {
+        val cfg = Config(
+            monthlyBudget = 2_000_000L,
+            fixed = listOf(Fixed(id = "f1", name = "월세", amount = 580_000L, day = 19))
+        )
+        // rule 로 들어온 월세 58만원과 일반 지출 30만원
+        val txns = listOf(
+            txn("2026-09-05T12:00:00", 300_000L),
+            Txn(
+                id = "rent", amount = 580_000L, merchant = "월세",
+                category = Cat.HOUSING.name, subCategory = "월세",
+                at = "2026-09-19T09:13:00", by = "rule"
+            )
+        )
+        // 200만 - 고정 58만 - 소비 30만 = 112만 (월세가 이중 차감되지 않음)
+        assertEquals(1_120_000L, Stats.monthRemain(cfg, txns))
+
+        // 하루 한도 계산에서도 월세가 이중 차감되지 않음
+        val status = Stats.dailyBudget(cfg, txns, java.time.LocalDate.of(2026, 9, 20))
+        assertEquals(11, status.remainingDays)
+        // 남은 가용 예산: 200만 - 58만 - 30만 = 112만. 112만 / 11일 = 101,810원
+        assertEquals(101_810L, status.dailyLimit)
+    }
 }

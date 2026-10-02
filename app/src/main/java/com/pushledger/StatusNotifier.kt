@@ -79,15 +79,20 @@ object StatusNotifier {
 
         val noBudget = cfg.monthlyBudget == 0L
 
-        // 상태창은 스치듯 보는 자리다. 오늘 남은/초과 금액과 오늘 지출/한도, 이달 잔여를 한눈에 보여준다.
-        val plainTitle = when {
-            noBudget -> "예산 미설정"
-            daily.isSuccess -> "오늘 ${won(daily.remaining)} 남음"
-            else -> "오늘 ${won(-daily.remaining)} 초과"
+        val status = when {
+            noBudget -> "NO BUDGET"
+            !daily.isSuccess -> "OVER"
+            daily.todaySpent > daily.dailyLimit * 0.8 -> "OK"
+            else -> "SAFE"
         }
-        val plainBody = if (noBudget) "예산 탭에서 월 예산을 정해 주세요"
-        else "오늘 지출 ${won(daily.todaySpent)} / 한도 ${won(daily.dailyLimit)} · 이달 " +
-            (if (remain >= 0) monthShort(remain) + " 남음" else monthShort(-remain) + " 초과")
+
+        val plainTitle = when {
+            noBudget -> "NO BUDGET"
+            daily.isSuccess -> "$status ${fmtMan(daily.remaining)}"
+            else -> "$status ${fmtMan(-daily.remaining)}"
+        }
+        val plainBody = if (noBudget) "0.0 / 0.0 · 0"
+        else "${fmtMan(daily.todaySpent)} / ${fmtMan(daily.dailyLimit)} · ${fmtMan(remain)}"
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             // 적응형 아이콘(mipmap)을 여기 쓰면 Android 8 이상에서 알림이 통째로 무시된다.
@@ -108,6 +113,18 @@ object StatusNotifier {
         if (!noBudget && !daily.isSuccess) warnOverspend(context, nm, daily)
 
         DailyWidgetProvider.updateAll(context)
+    }
+
+    /** 만원 단위 소수점 표기. 1만원 -> 1.0, 3만원 -> 3.0, 30만원 -> 30 */
+    fun fmtMan(v: Long): String {
+        val sign = if (v < 0) "-" else ""
+        val abs = kotlin.math.abs(v)
+        val man = abs.toDouble() / 10_000.0
+        return if (abs >= 100_000L && abs % 10_000L == 0L) {
+            "$sign${abs / 10_000L}"
+        } else {
+            "$sign%.1f".format(java.util.Locale.US, man)
+        }
     }
 
     /** 만원 단위로 줄인 금액. 상태창과 위젯은 자리가 좁아 원 단위까지 적을 곳이 없다. */
@@ -206,9 +223,9 @@ object StatusNotifier {
                 OVER_ID,
                 NotificationCompat.Builder(context, OVER_CH)
                     .setSmallIcon(R.drawable.ic_stat_budget)
-                    .setContentTitle("오늘 예산을 넘었어요")
+                    .setContentTitle("OVER")
                     .setContentText(
-                        "${won(-daily.remaining)} 초과 · 오늘 한도 ${won(daily.dailyLimit)}"
+                        "OVER ${fmtMan(-daily.remaining)} · LIMIT ${fmtMan(daily.dailyLimit)}"
                     )
                     .setAutoCancel(true)
                     .setColor(OVER)

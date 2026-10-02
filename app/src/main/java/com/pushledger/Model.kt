@@ -69,6 +69,12 @@ data class Txn(
      */
     val isFixedPlan: Boolean get() = by == "fixed" && dedup.startsWith("fixed|")
     val isInvestment: Boolean get() = (cat == Cat.FINANCE && (subCategory == "투자/저축" || subCategory.startsWith("투자") || subCategory.startsWith("주식") || subCategory.startsWith("적금") || subCategory.startsWith("코인"))) || by == "invest"
+    val isRent: Boolean get() = subCategory == "월세" ||
+        subCategory.contains("월세") ||
+        merchant.contains("월세") ||
+        merchant.contains("임대료") ||
+        memo.contains("월세") ||
+        memo.contains("임대료")
 }
 
 

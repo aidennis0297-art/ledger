@@ -1,5 +1,6 @@
 package com.pushledger
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -99,10 +100,12 @@ class DedupTest {
         )
         assertTrue(plan.isFixedPlan)
         assertFalse(byHand.isFixedPlan)
-        // 자리표는 소비에서 빠지고, 손으로 넣은 줄은 그대로 소비로 잡힌다.
-        // 둘이 같이 남으면 이 값이 58만원이 되어 같은 돈이 두 번 세어진다.
+        // 자리표는 소비에서 빠진다.
         assertTrue(Stats.total(listOf(plan)) == 0L)
-        assertTrue(Stats.total(listOf(plan, byHand)) == 580_000L)
+        // 월세는 고정지출이므로 변동 소비 집계(total)에서 제외된다 (그래프 왜곡 및 이중 차감 방지)
+        assertTrue(Stats.total(listOf(plan, byHand)) == 0L)
+        // 대신 고정지출 실제 결제 건으로 집계된다
+        assertEquals(580_000L, Stats.fixedRecordedTotal(listOf(plan, byHand)))
         // 이름이 같으므로 addTxn 이 자리표를 알아본다.
         assertTrue(Merchant.same(plan.merchant, byHand.merchant))
     }

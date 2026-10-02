@@ -176,10 +176,10 @@ class DailyWidgetProvider : AppWidgetProvider() {
                     R.id.widget_daily_amount, if (plan.shortAmount) "미설정" else "예산 미설정"
                 )
                 views.setTextColor(R.id.widget_daily_amount, INK)
-                views.setTextViewText(R.id.widget_status_badge, "설정")
+                views.setTextViewText(R.id.widget_status_badge, "SET")
                 views.setTextColor(R.id.widget_status_badge, ACCENT)
-                views.setTextViewText(R.id.widget_spent_text, "예산 탭에서")
-                views.setTextViewText(R.id.widget_remaining_text, "월 예산 입력")
+                views.setTextViewText(R.id.widget_spent_text, "0.0")
+                views.setTextViewText(R.id.widget_remaining_text, "/ 0.0")
                 views.setTextViewText(R.id.widget_month_text, "")
             } else {
                 val over = !daily.isSuccess
@@ -187,18 +187,18 @@ class DailyWidgetProvider : AppWidgetProvider() {
                 // 1x1 에서는 "4만 5000원" 이 통째로 안 들어간다. 좁으면 만 단위로 줄인다.
                 views.setTextViewText(
                     R.id.widget_daily_amount,
-                    if (plan.shortAmount) StatusNotifier.monthShort(left) else won(left)
+                    if (plan.shortAmount) StatusNotifier.fmtMan(left) else won(left)
                 )
                 views.setTextColor(R.id.widget_daily_amount, if (over) OVER else INK)
-                views.setTextViewText(R.id.widget_status_badge, if (over) "초과" else "남음")
+                val statusBadge = if (over) "OVER" else if (daily.todaySpent > daily.dailyLimit * 0.8) "OK" else "SAFE"
+                views.setTextViewText(R.id.widget_status_badge, statusBadge)
                 views.setTextColor(R.id.widget_status_badge, if (over) OVER else ACCENT)
-                views.setTextViewText(R.id.widget_spent_text, "지출 " + won(daily.todaySpent))
-                views.setTextViewText(R.id.widget_remaining_text, "한도 " + won(daily.dailyLimit))
+                views.setTextViewText(R.id.widget_spent_text, StatusNotifier.fmtMan(daily.todaySpent))
+                views.setTextViewText(R.id.widget_remaining_text, "/ " + StatusNotifier.fmtMan(daily.dailyLimit))
                 // 큰 숫자는 오늘 몫, 이 줄은 달 전체. 배지 아래 남는 자리에 끼워 넣는다.
                 views.setTextViewText(
                     R.id.widget_month_text,
-                    if (remain >= 0) "월 %s".format(StatusNotifier.monthShort(remain))
-                    else "월 -%s".format(StatusNotifier.monthShort(-remain))
+                    StatusNotifier.fmtMan(remain)
                 )
                 views.setTextColor(R.id.widget_month_text, if (remain < 0) OVER else SUB)
 

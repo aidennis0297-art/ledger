@@ -120,9 +120,14 @@ private fun MonthStats() {
             }
             Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp)) {
                 Text(won(total), fontSize = T.Display, fontWeight = FontWeight.Bold, color = Ink)
-                if (investTotal > 0) {
+                val rentTotal = Stats.rentTotal(list)
+                if (rentTotal > 0 || investTotal > 0) {
                     Spacer(Modifier.height(2.dp))
-                    Text("투자·저축 ${wonShort(investTotal)}원 제외", fontSize = T.Body, color = Sub)
+                    val note = buildList {
+                        if (rentTotal > 0) add("월세 ${wonShort(rentTotal)}원")
+                        if (investTotal > 0) add("투자·저축 ${wonShort(investTotal)}원")
+                    }.joinToString(" · ")
+                    Text("$note 제외", fontSize = T.Body, color = Sub)
                 }
                 if (prevTotal > 0) {
                     Spacer(Modifier.height(4.dp))

@@ -14,9 +14,9 @@ import java.time.YearMonth
  */
 object Stats {
 
-    /** 취소되지 않은 순수 소비/지출 거래 목록 (고정지출 실행건, 투자, 수입 제외) */
+    /** 취소되지 않은 순수 소비/지출 거래 목록 (고정지출 실행건, 월세, 투자, 수입 제외) */
     fun active(list: List<Txn>): List<Txn> =
-        list.filter { !it.canceled && it.cat.isExpense && !it.isInvestment && it.by != "fixed" }
+        list.filter { !it.canceled && it.cat.isExpense && !it.isInvestment && it.by != "fixed" && !it.isRent }
 
     /** 취소되지 않은 투자/저축 거래 목록 */
     fun activeInvest(list: List<Txn>): List<Txn> =
@@ -26,9 +26,13 @@ object Stats {
     fun incomeTotal(list: List<Txn>): Long =
         list.filter { !it.canceled && it.cat == Cat.INCOME }.sumOf { it.amount }
 
-    /** 이번 달 고정지출 실제 결제/출금 건 합계 */
+    /** 이번 달 고정지출 실제 결제/출금 건 합계 (월세 포함, 예정 자리표 제외) */
     fun fixedRecordedTotal(list: List<Txn>): Long =
-        list.filter { !it.canceled && it.by == "fixed" }.sumOf { it.amount }
+        list.filter { !it.canceled && !it.isFixedPlan && (it.by == "fixed" || it.isRent) }.sumOf { it.amount }
+
+    /** 이번 달 총 월세 지출 */
+    fun rentTotal(list: List<Txn>): Long =
+        list.filter { !it.canceled && it.isRent }.sumOf { it.amount }
 
     private fun at(t: Txn): LocalDateTime = LocalDateTime.parse(t.at, Store.ts)
 
@@ -235,7 +239,8 @@ object Stats {
      */
     fun dailyVariableBudget(cfg: Config, month: List<Txn>, ym: YearMonth): Long {
         if (cfg.monthlyBudget <= 0L) return 0L
-        val pool = cfg.monthlyBudget + incomeTotal(month) - fixedTotal(cfg) - investGoal(cfg)
+        val fixedDeduction = maxOf(fixedTotal(cfg), fixedRecordedTotal(month))
+        val pool = cfg.monthlyBudget + incomeTotal(month) - fixedDeduction - investGoal(cfg)
         return (pool.coerceAtLeast(0L) / ym.lengthOfMonth()) / 10L * 10L
     }
 
@@ -283,7 +288,8 @@ object Stats {
         val savingDeduction = if (cfg.budgetExcludesSaving) {
             maxOf(investGoal(cfg), investTotal(month))
         } else 0L
-        return cfg.monthlyBudget + incomeTotal(month) - fixedTotal(cfg) - total(month) - savingDeduction
+        val fixedDeduction = maxOf(fixedTotal(cfg), fixedRecordedTotal(month))
+        return cfg.monthlyBudget + incomeTotal(month) - fixedDeduction - total(month) - savingDeduction
     }
 
     /** 이번 달 고정지출 합계. */
@@ -447,7 +453,7 @@ object Stats {
         val activeTxns = active(month)
         val invested = investTotal(month)
         val income = incomeTotal(month)
-        val fixedPlan = fixedTotal(cfg)
+        val fixedPlan = maxOf(fixedTotal(cfg), fixedRecordedTotal(month))
 
         val todayPrefix = today.toString()
         val todaySpent = activeTxns.filter { it.at.startsWith(todayPrefix) }.sumOf { it.amount }

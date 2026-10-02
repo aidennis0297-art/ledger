@@ -95,7 +95,7 @@ object Store {
             // 세는 바람에 자동 생성분이 또 만들어져, 58만원짜리 월세가 두 줄로 남아 있었다.
             // 그달에 그 이름으로 뭐가 하나라도 있으면 고정지출은 이미 처리된 것이다.
             val already = monthTxns.any {
-                !it.canceled && (it.dedup == fixedDedup || Merchant.same(it.merchant, f.name))
+                !it.canceled && (it.dedup == fixedDedup || Merchant.same(it.merchant, f.name) || (f.name.contains("월세") && it.isRent))
             }
             if (!already) {
                 val dt = targetDate.atTime(9, 0, 0)
@@ -180,12 +180,12 @@ object Store {
         //
         // **자리표가 있을 때만 한다.** 그달에 월세가 이미 실제로 나갔는데 같은 이름으로
         // 또 결제가 일어나면 그건 고정지출이 아니라 그냥 소비다(hasRealFixed 와 같은 판단).
-        val plan = cur.firstOrNull { it.isFixedPlan && Merchant.same(it.merchant, t.merchant) }
+        val plan = cur.firstOrNull { it.isFixedPlan && (Merchant.same(it.merchant, t.merchant) || (it.isRent && t.isRent)) }
         if (plan != null && t.by != "fixed") {
-            val f = config.value.fixed.firstOrNull { Merchant.same(it.name, t.merchant) }
+            val f = config.value.fixed.firstOrNull { Merchant.same(it.name, t.merchant) || (it.name.contains("월세") && t.isRent) }
             val row = t.copy(
                 by = "fixed",
-                category = f?.category ?: t.category,
+                category = f?.category ?: Cat.HOUSING.name,
                 subCategory = "고정지출"
             )
             writeMonth(ym, (cur - plan + row).sortedByDescending { it.at })
@@ -365,7 +365,7 @@ object Store {
      */
     fun hasRealFixed(name: String, ym: YearMonth): Boolean =
         readMonth(ym).any {
-            !it.canceled && it.by == "fixed" && it.merchant == name && !it.isFixedPlan
+            !it.canceled && (it.by == "fixed" || it.isRent) && (it.merchant == name || (name.contains("월세") && it.isRent)) && !it.isFixedPlan
         }
 
     /**

@@ -194,7 +194,7 @@ fun LedgerScreen() {
                             // 하루 소계는 위의 달 합계와 같은 기준으로 센다. 예전에는 여기서만
                             // 고정지출·투자·수입까지 싸잡아 더해서, 날짜 소계를 다 합치면
                             // 달 합계보다 커졌다. 같은 돈이 두 군데서 세어진 것처럼 보인 이유다.
-                            val dayFixed = txns.filter { !it.canceled && it.by == "fixed" }
+                            val dayFixed = txns.filter { !it.canceled && (it.by == "fixed" || it.isRent) }
                                 .sumOf { it.amount }
                             Text(
                                 won(Stats.total(txns)) +
