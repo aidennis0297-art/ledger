@@ -279,9 +279,12 @@ object Stats {
      * 이 앱에서 숫자가 어긋난 다섯 번째이자 마지막 자리다. 앞의 넷은 [variableBudget]
      * 주석에 적혀 있다.
      */
-    fun monthRemain(cfg: Config, month: List<Txn>): Long =
-        cfg.monthlyBudget + incomeTotal(month) - fixedTotal(cfg) - total(month) -
-            (if (cfg.budgetExcludesSaving) investGoal(cfg) else 0L)
+    fun monthRemain(cfg: Config, month: List<Txn>): Long {
+        val savingDeduction = if (cfg.budgetExcludesSaving) {
+            maxOf(investGoal(cfg), investTotal(month))
+        } else 0L
+        return cfg.monthlyBudget + incomeTotal(month) - fixedTotal(cfg) - total(month) - savingDeduction
+    }
 
     /** 이번 달 고정지출 합계. */
     fun fixedTotal(cfg: Config): Long = cfg.fixed.sumOf { it.amount }
@@ -450,7 +453,13 @@ object Stats {
         val todaySpent = activeTxns.filter { it.at.startsWith(todayPrefix) }.sumOf { it.amount }
         val pastSpent = activeTxns.filter { !it.at.startsWith(todayPrefix) && it.at < todayPrefix }.sumOf { it.amount }
 
-        val totalAvailableForMonth = (cfg.monthlyBudget + income - fixedPlan - invested).coerceAtLeast(0L)
+        val savingDeduction = if (cfg.budgetExcludesSaving) {
+            maxOf(investGoal(cfg), invested)
+        } else {
+            invested
+        }
+
+        val totalAvailableForMonth = (cfg.monthlyBudget + income - fixedPlan - savingDeduction).coerceAtLeast(0L)
         val remainingBudgetForMonth = (totalAvailableForMonth - pastSpent).coerceAtLeast(0L)
 
         // 10원 단위 아래는 버린다. 상태창에 66,666원처럼 뜨면 읽는 데 방해만 된다.

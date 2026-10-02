@@ -50,6 +50,28 @@ class StatsTest {
         assertEquals(1_200_000L, Stats.monthRemain(base.copy(budgetExcludesSaving = true), txns))
     }
 
+    @Test fun 저축_제외_설정에_따라_하루_한도가_달라진다() {
+        val cfg = Config(
+            monthlyBudget = 920_000L,
+            catBudget = mapOf("INVEST_GOAL" to 300_000L)
+        )
+        val oct1 = java.time.LocalDate.of(2026, 10, 1)
+
+        // 1. 저축 포함 상태 (이달 92만원 남음) -> 하루 한도 92만 / 31일 = 29,670원
+        val withSaving = Stats.dailyBudget(cfg.copy(budgetExcludesSaving = false), emptyList(), oct1)
+        val remainWith = Stats.monthRemain(cfg.copy(budgetExcludesSaving = false), emptyList())
+        assertEquals(920_000L, remainWith)
+        assertEquals(29_670L, withSaving.dailyLimit)
+        assertEquals(29_670L, withSaving.remaining)
+
+        // 2. 저축 제외 상태 (이달 62만원 남음) -> 하루 한도 62만 / 31일 = 20,000원
+        val withoutSaving = Stats.dailyBudget(cfg.copy(budgetExcludesSaving = true), emptyList(), oct1)
+        val remainWithout = Stats.monthRemain(cfg.copy(budgetExcludesSaving = true), emptyList())
+        assertEquals(620_000L, remainWithout)
+        assertEquals(20_000L, withoutSaving.dailyLimit)
+        assertEquals(20_000L, withoutSaving.remaining)
+    }
+
     /**
      * 남은 돈은 고정지출을 미리 뺀다. 하루 한도와 기준이 같아야 한다.
      *
