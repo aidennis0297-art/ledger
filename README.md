@@ -3,13 +3,15 @@
 결제 알림을 읽어 가계부에 자동으로 꽂는 안드로이드 앱. 규칙으로 먼저 읽고,
 규칙이 놓친 것은 AI 로 넘긴다 — 손으로 골라 넘겨도 되고, 자동으로 넘기게 켜 둬도 된다.
 
-### ⬇ APK 내려받기
+### ⬇ APK 다운로드 (버전: `v0.2.0`)
 
-**[pushledger.apk 바로 받기](https://github.com/aidennis0297-art/ledger/raw/main/pushledger.apk)**
+[![Download APK](https://img.shields.io/badge/Download-pushledger.apk%20(v0.2.0)-2F6BFF?style=for-the-badge&logo=android&logoColor=white)](https://github.com/aidennis0297-art/ledger/raw/main/pushledger.apk)
 
-폰 브라우저에서 위 링크를 누르면 바로 받아진다. 설치할 때 "출처를 알 수 없는 앱"
-허용이 필요하고, 앱을 처음 열면 **알림 접근 권한**을 켜야 한다 — 이걸 안 켜면
-다른 앱의 알림을 읽을 수 없어서 앱이 아무것도 하지 못한다.
+👉 [**pushledger.apk 바로 다운로드 (클릭)**](https://github.com/aidennis0297-art/ledger/raw/main/pushledger.apk)
+
+- **버전명**: `v0.2.0` (versionCode: 2)
+- **최근 업데이트**: 저축 제외 시 하루 한도 실시간 동기화, NVIDIA DeepSeek-v4.1-flash 전환, 알림 파싱 엔진 고도화
+- 스마트폰 브라우저에서 위 버튼이나 링크를 클릭하면 즉시 APK가 다운로드됩니다. 설치 시 "출처를 알 수 없는 앱 설치 허용" 후, 앱 실행 시 **알림 접근 권한**을 켜 주시면 정상 작동합니다.
 
 ## 왜 안드로이드 네이티브인가
 
