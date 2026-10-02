@@ -3,14 +3,17 @@
 결제 알림을 읽어 가계부에 자동으로 꽂는 안드로이드 앱. 규칙으로 먼저 읽고,
 규칙이 놓친 것은 AI 로 넘긴다 — 손으로 골라 넘겨도 되고, 자동으로 넘기게 켜 둬도 된다.
 
-### ⬇ APK 다운로드 (버전: `v0.2.0`)
+### ⬇ APK 다운로드 (버전: `v0.2.1`)
 
-[![Download APK](https://img.shields.io/badge/Download-pushledger.apk%20(v0.2.0)-2F6BFF?style=for-the-badge&logo=android&logoColor=white)](https://github.com/aidennis0297-art/ledger/raw/main/pushledger.apk)
+[![Download APK](https://img.shields.io/badge/Download-pushledger.apk%20(v0.2.1)-2F6BFF?style=for-the-badge&logo=android&logoColor=white)](https://github.com/aidennis0297-art/ledger/raw/main/pushledger.apk)
 
 👉 [**pushledger.apk 바로 다운로드 (클릭)**](https://github.com/aidennis0297-art/ledger/raw/main/pushledger.apk)
 
-- **버전명**: `v0.2.0` (versionCode: 2)
-- **최근 업데이트**: 저축 제외 시 하루 한도 실시간 동기화, NVIDIA DeepSeek-v4.1-flash 전환, 알림 파싱 엔진 고도화
+- **버전명**: `v0.2.1` (versionCode: 3)
+- **최근 업데이트**:
+  1. **고정지출 월세 제외**: 통계 탭 그래프에서 월세 58만원을 제외하여 스케일 왜곡 방지 및 예산 이중 차감 원천 방지
+  2. **상태창 & 위젯 숫자 간결화**: 한글 문구 제거, 영문 상태(`SAFE` / `OK` / `OVER`) 및 간결한 만원 단위 숫자 포맷(`1.0 / 3.0 · 30`) 적용
+  3. **하루 예산 연동**: 저축 제외 설정 및 고정지출 집행액 기준 실시간 동기화
 - 스마트폰 브라우저에서 위 버튼이나 링크를 클릭하면 즉시 APK가 다운로드됩니다. 설치 시 "출처를 알 수 없는 앱 설치 허용" 후, 앱 실행 시 **알림 접근 권한**을 켜 주시면 정상 작동합니다.
 
 ## 왜 안드로이드 네이티브인가
